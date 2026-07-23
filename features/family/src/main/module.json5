@@ -1,0 +1,8 @@
+{
+  "module": {
+    "name": "features_family",
+    "type": "har",
+    "description": "Feature module: family",
+    "deviceTypes": ["phone", "tablet", "2in1", "wearable"]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "features/statistics",
+  "version": "1.0.0",
+  "description": "Feature module: statistics",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

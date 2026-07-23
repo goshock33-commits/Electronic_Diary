@@ -1,0 +1,28 @@
+{
+  "forms": [
+    {
+      "name": "TodoForm",
+      "displayName": "$string:todo_form_name",
+      "description": "$string:todo_form_desc",
+      "src": "./ets/formpages/TodoFormPage.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "transparencyEnabled": true,
+      "formConfigAbility": "ability://TodoFormAbility",
+      "isDefault": true,
+      "isDynamic": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:30",
+      "updateDuration": 0,
+      "defaultDimension": "2*4",
+      "supportDimensions": [
+        "2*4"
+      ],
+      "metadata": []
+    }
+  ]
+}

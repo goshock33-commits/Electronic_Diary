@@ -1,0 +1,16 @@
+{
+  "name": "features_voice_diary",
+  "version": "1.0.0",
+  "description": "Feature module: voice-diary",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared",
+    // fix: F5-v2 — AI 伙伴对话整合任务提取（§1.4 三者一致：key=模块name=import路径；sections 模块已有同款跨 feature 依赖先例，无循环）
+    "features_task_extraction": "file:../task-extraction",
+    // T102 — query_diary/manage_todo 走各 feature DAO/VM（key 抄各模块 oh-package.json5 name 原文，§1.4 铁律；两模块仅依赖 @ohos/shared，无循环）
+    "features/todo": "file:../todo",
+    "features/diary": "file:../diary"
+  }
+}

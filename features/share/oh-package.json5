@@ -1,0 +1,11 @@
+{
+  "name": "features_share",
+  "version": "1.0.0",
+  "description": "Feature module: share",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

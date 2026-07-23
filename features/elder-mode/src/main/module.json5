@@ -1,0 +1,13 @@
+{
+  "module": {
+    "name": "features_elder_mode",
+    "type": "har",
+    "description": "Feature module: elder-mode",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1",
+      "wearable"
+    ]
+  }
+}

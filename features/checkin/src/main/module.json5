@@ -1,0 +1,8 @@
+{
+  "module": {
+    "name": "features_checkin",
+    "type": "har",
+    "description": "Feature module: checkin",
+    "deviceTypes": ["phone", "tablet", "2in1", "wearable"]
+  }
+}

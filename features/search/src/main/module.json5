@@ -1,0 +1,8 @@
+{
+  "module": {
+    "name": "features_search",
+    "type": "har",
+    "description": "Feature module: search",
+    "deviceTypes": ["phone", "tablet", "2in1", "wearable"]
+  }
+}

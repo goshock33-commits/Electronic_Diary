@@ -1,0 +1,11 @@
+{
+  "name": "features_elder_mode",
+  "version": "1.0.0",
+  "description": "Feature module: elder-mode",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

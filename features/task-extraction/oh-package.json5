@@ -1,0 +1,11 @@
+{
+  "name": "features_task_extraction",
+  "version": "1.0.0",
+  "description": "Feature module: task-extraction",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

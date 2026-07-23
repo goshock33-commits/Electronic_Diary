@@ -1,0 +1,28 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../shared",
+    "features/checkin": "file:../features/checkin",
+    "features/todo": "file:../features/todo",
+    "features/sections": "file:../features/sections",
+    "features/settings": "file:../features/settings",
+    "features/diary": "file:../features/diary",
+    "features/search": "file:../features/search",
+    "features/statistics": "file:../features/statistics",
+    "features/quote": "file:../features/quote",
+    "features/pomodoro": "file:../features/pomodoro",
+    "features_gesture_diary": "file:../features/gesture-diary",
+    "features_share": "file:../features/share",
+    "features_voice_diary": "file:../features/voice-diary",
+    "features_task_extraction": "file:../features/task-extraction",
+    "features_elder_mode": "file:../features/elder-mode",
+    "features_family": "file:../features/family"
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
+}

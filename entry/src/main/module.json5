@@ -1,0 +1,265 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1",
+      "wearable"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.PUBLISH_AGENT_REMINDER",
+        "reason": "$string:reminder_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "reason": "$string:background_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.NFC_TAG",
+        "reason": "$string:nfc_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.DISTRIBUTED_DATASYNC",
+        "reason": "$string:distributed_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.INTERNET",
+        "reason": "$string:internet_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:microphone_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.CAMERA",
+        "reason": "$string:camera_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      }
+    ],
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          },
+          {
+            "actions": [
+              "ohos.nfc.action.TAG_DISCOVERED"
+            ],
+            "uris": [
+              {
+                "scheme": "diarytap",
+                "host": "share"
+              }
+            ]
+          },
+          // fix: DEV-014 · T-B02 收备份兜底：声明可打开 zip 备份文件（华为分享收到 .ediary.zip 后
+          // 用本 App 打开 → EntryAbility.handleKnockWant 自动导入；utd 见 @ohos.data.uniformTypeDescriptor）
+          {
+            "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "general.zip-archive",
+                "maxFileSupported": 1
+              }
+            ]
+          },
+          // 桌面相机卡片快速拍照：CameraFormAbility wantAgent 携带 diary://camera → EntryAbility 识别后跳 QuickCameraPage
+          {
+            "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "uris": [
+              {
+                "scheme": "diary",
+                "host": "camera"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "DiaryEditAbility",
+        "srcEntry": "./ets/entryability/DiaryEditAbility.ets",
+        "description": "$string:DiaryEditAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:DiaryEditAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": false,
+        "skills": []
+      },
+      {
+        "name": "TaskConfirmAbility",
+        "srcEntry": "./ets/entryability/TaskConfirmAbility.ets",
+        "description": "$string:TaskConfirmAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:TaskConfirmAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": false,
+        "skills": []
+      },
+      {
+        "name": "SecurityLockAbility",
+        "srcEntry": "./ets/entryability/SecurityLockAbility.ets",
+        "description": "$string:SecurityLockAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:SecurityLockAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": false,
+        "skills": []
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "EntryBackupAbility",
+        "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ]
+      },
+      {
+        "name": "ShareReceiveAbility",
+        "srcEntry": "./ets/extensionabilities/ShareReceiveAbility.ets",
+        "type": "share",
+        "exported": true,
+        "description": "$string:ShareReceiveAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:ShareReceiveAbility_label"
+      },
+      {
+        "name": "CheckInFormAbility",
+        "srcEntry": "./ets/formextensions/CheckInFormAbility.ets",
+        "type": "form",
+        "exported": true,
+        "description": "$string:checkin_form_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:checkin_form_label",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_checkin"
+          }
+        ]
+      },
+      {
+        "name": "TodoFormAbility",
+        "srcEntry": "./ets/formextensions/TodoFormAbility.ets",
+        "type": "form",
+        "exported": true,
+        "description": "$string:todo_form_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:todo_form_label",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_todo"
+          }
+        ]
+      },
+      {
+        "name": "PomodoroFormAbility",
+        "srcEntry": "./ets/formextensions/PomodoroFormAbility.ets",
+        "type": "form",
+        "exported": true,
+        "description": "$string:pomodoro_form_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:pomodoro_form_label",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_pomodoro"
+          }
+        ]
+      },
+      {
+        "name": "QuoteFormAbility",
+        "srcEntry": "./ets/formextensions/QuoteFormAbility.ets",
+        "type": "form",
+        "exported": true,
+        "description": "$string:quote_form_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:quote_form_label",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_quote"
+          }
+        ]
+      },
+      {
+        "name": "CameraFormAbility",
+        "srcEntry": "./ets/formextensions/CameraFormAbility.ets",
+        "type": "form",
+        "exported": true,
+        "description": "$string:camera_form_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:camera_form_label",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_camera"
+          }
+        ]
+      }
+    ]
+  }
+}

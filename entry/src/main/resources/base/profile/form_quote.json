@@ -1,0 +1,28 @@
+{
+  "forms": [
+    {
+      "name": "QuoteForm",
+      "displayName": "$string:quote_form_name",
+      "description": "$string:quote_form_desc",
+      "src": "./ets/formpages/QuoteFormPage.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "transparencyEnabled": true,
+      "formConfigAbility": "ability://QuoteFormAbility",
+      "isDefault": true,
+      "isDynamic": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "00:01",
+      "updateDuration": 1,
+      "defaultDimension": "2*2",
+      "supportDimensions": [
+        "2*2"
+      ],
+      "metadata": []
+    }
+  ]
+}

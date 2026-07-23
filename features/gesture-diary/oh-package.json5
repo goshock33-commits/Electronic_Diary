@@ -1,0 +1,11 @@
+{
+  "name": "features_gesture_diary",
+  "version": "1.0.0",
+  "description": "Feature module: gesture-diary",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

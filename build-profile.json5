@@ -1,0 +1,132 @@
+{
+  "app": {
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.1(24)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "capabilities": [
+      {
+        "bundleName": "com.example.electronic_diary",
+        "config": [
+          {
+            "name": "webAccessServiceForAIQA",
+            "capability": "webAccessServiceForAIQA"
+          },
+          {
+            "name": "Push Kit",
+            "capability": "com.huawei.service.push.base_service"
+          },
+          {
+            "name": "Device status detection",
+            "capability": "com.huawei.service.device_security.device_verify"
+          },
+          {
+            "name": "Map Kit",
+            "capability": "com.huawei.service.mapkit"
+          },
+          {
+            "name": "Safety Detect",
+            "capability": "com.huawei.service.device_security.safety_detect"
+          }
+        ]
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shared",
+      "srcPath": "./shared"
+    },
+    {
+      "name": "features_checkin",
+      "srcPath": "./features/checkin"
+    },
+    {
+      "name": "features_todo",
+      "srcPath": "./features/todo"
+    },
+    {
+      "name": "features_sections",
+      "srcPath": "./features/sections"
+    },
+    {
+      "name": "features_diary",
+      "srcPath": "./features/diary"
+    },
+    {
+      "name": "features_search",
+      "srcPath": "./features/search"
+    },
+    {
+      "name": "features_task_extraction",
+      "srcPath": "./features/task-extraction"
+    },
+    {
+      "name": "features_pomodoro",
+      "srcPath": "./features/pomodoro"
+    },
+    {
+      "name": "features_statistics",
+      "srcPath": "./features/statistics"
+    },
+    {
+      "name": "features_quote",
+      "srcPath": "./features/quote"
+    },
+    {
+      "name": "features_gesture_diary",
+      "srcPath": "./features/gesture-diary"
+    },
+    {
+      "name": "features_voice_diary",
+      "srcPath": "./features/voice-diary"
+    },
+    {
+      "name": "features_settings",
+      "srcPath": "./features/settings"
+    },
+    {
+      "name": "features_share",
+      "srcPath": "./features/share"
+    },
+    {
+      "name": "features_elder_mode",
+      "srcPath": "./features/elder-mode"
+    },
+    {
+      "name": "features_family",
+      "srcPath": "./features/family"
+    }
+  ]
+}

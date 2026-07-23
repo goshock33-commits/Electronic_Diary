@@ -1,0 +1,28 @@
+{
+  "forms": [
+    {
+      "name": "PomodoroForm",
+      "displayName": "$string:pomodoro_form_name",
+      "description": "$string:pomodoro_form_desc",
+      "src": "./ets/formpages/PomodoroFormPage.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "transparencyEnabled": true,
+      "formConfigAbility": "ability://PomodoroFormAbility",
+      "isDefault": true,
+      "isDynamic": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:30",
+      "updateDuration": 0,
+      "defaultDimension": "2*2",
+      "supportDimensions": [
+        "2*2"
+      ],
+      "metadata": []
+    }
+  ]
+}

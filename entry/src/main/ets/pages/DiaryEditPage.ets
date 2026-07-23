@@ -1,0 +1,21 @@
+// <!-- agentID: HUI-024 -->
+// @Entry 日记编辑页（路由入口，委托 features/diary DiaryEditPage）
+// 关联任务：F09（PLN-002 阶段4 日记系统）
+import { DiaryEditPage } from 'features/diary';
+import { reportPawTouch, PawOverlayLayer } from '@ohos/shared';
+
+@Entry
+@Component
+struct DiaryEditPageEntry {
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      DiaryEditPage()
+      // HUI-001: 猫爪视觉层（同树最上层子节点，整层 None 不参与命中，不挡交互）
+      PawOverlayLayer()
+    }
+    .width('100%')
+    .height('100%')
+    // HUI-001: 猫爪特效触摸捕获（页面树内监听 Down，不消费；视觉层在本页根 Stack 顶层）
+    .onTouch((event: TouchEvent) => reportPawTouch(event))
+  }
+}

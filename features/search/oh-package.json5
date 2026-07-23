@@ -1,0 +1,11 @@
+{
+  "name": "features/search",
+  "version": "1.0.0",
+  "description": "Feature module: search",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "features/checkin",
+  "version": "1.0.0",
+  "description": "Feature module: checkin",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

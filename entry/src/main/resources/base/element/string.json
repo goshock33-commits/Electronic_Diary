@@ -1,0 +1,144 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "电子日记本 - 记录生活，管理任务"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "电子日记本主入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "电子日记本"
+    },
+    {
+      "name": "DiaryEditAbility_desc",
+      "value": "日记全屏编辑器"
+    },
+    {
+      "name": "DiaryEditAbility_label",
+      "value": "写日记"
+    },
+    {
+      "name": "TaskConfirmAbility_desc",
+      "value": "提取任务确认编辑"
+    },
+    {
+      "name": "TaskConfirmAbility_label",
+      "value": "确认任务"
+    },
+    {
+      "name": "SecurityLockAbility_desc",
+      "value": "安全锁PIN码验证"
+    },
+    {
+      "name": "SecurityLockAbility_label",
+      "value": "安全验证"
+    },
+    {
+      "name": "ShareReceiveAbility_desc",
+      "value": "接收系统分享文本"
+    },
+    {
+      "name": "ShareReceiveAbility_label",
+      "value": "分享接收"
+    },
+    {
+      "name": "DiaryDataShareAbility_desc",
+      "value": "跨设备数据共享"
+    },
+    {
+      "name": "DiaryDataShareAbility_label",
+      "value": "数据共享"
+    },
+    {
+      "name": "reminder_permission_reason",
+      "value": "用于设置每日打卡提醒"
+    },
+    {
+      "name": "background_permission_reason",
+      "value": "用于番茄钟后台计时"
+    },
+    {
+      "name": "checkin_form_name",
+      "value": "打卡进度环"
+    },
+    {
+      "name": "checkin_form_desc",
+      "value": "桌面打卡进度环卡片 - 展示当日打卡状态与连续天数"
+    },
+    {
+      "name": "checkin_form_label",
+      "value": "打卡卡片"
+    },
+    {
+      "name": "todo_form_name",
+      "value": "待办清单"
+    },
+    {
+      "name": "todo_form_desc",
+      "value": "桌面待办清单卡片 - 展示今日待办前3条"
+    },
+    {
+      "name": "todo_form_label",
+      "value": "待办卡片"
+    },
+    {
+      "name": "pomodoro_form_name",
+      "value": "番茄钟状态"
+    },
+    {
+      "name": "pomodoro_form_desc",
+      "value": "桌面番茄钟状态卡片 - 展示计时剩余时间与进度"
+    },
+    {
+      "name": "pomodoro_form_label",
+      "value": "番茄钟卡片"
+    },
+    {
+      "name": "quote_form_name",
+      "value": "每日一言"
+    },
+    {
+      "name": "quote_form_desc",
+      "value": "桌面每日一言卡片 - 每日自动刷新名言"
+    },
+    {
+      "name": "quote_form_label",
+      "value": "名言卡片"
+    },
+    {
+      "name": "camera_form_name",
+      "value": "相机"
+    },
+    {
+      "name": "camera_form_desc",
+      "value": "桌面相机快捷卡片 - 点击打开相机"
+    },
+    {
+      "name": "camera_form_label",
+      "value": "相机卡片"
+    },
+    {
+      "name": "nfc_permission_reason",
+      "value": "用于碰一碰分享日记和传输数据"
+    },
+    {
+      "name": "distributed_permission_reason",
+      "value": "用于跨设备数据同步和碰一碰传输"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "用于AI语音日记的智能解析网络请求"
+    },
+    {
+      "name": "microphone_permission_reason",
+      "value": "用于AI伙伴长按语音输入，将说话内容转写为文字"
+    },
+    {
+      "name": "camera_permission_reason",
+      "value": "用于快速拍照功能，拍摄照片后添加到日记中"
+    }
+  ]
+}

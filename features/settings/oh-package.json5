@@ -1,0 +1,12 @@
+{
+  "name": "features/settings",
+  "version": "1.0.0",
+  "description": "Feature module: settings",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared",
+    "features/quote": "file:../quote"
+  }
+}

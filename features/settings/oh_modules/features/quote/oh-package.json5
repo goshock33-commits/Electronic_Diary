@@ -1,0 +1,11 @@
+{
+  "name": "features/quote",
+  "version": "1.0.0",
+  "description": "Feature module: quote",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

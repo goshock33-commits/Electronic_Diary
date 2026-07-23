@@ -1,0 +1,11 @@
+{
+  "name": "features_family",
+  "version": "1.0.0",
+  "description": "Feature module: family",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

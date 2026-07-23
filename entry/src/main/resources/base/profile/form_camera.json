@@ -1,0 +1,26 @@
+{
+  "forms": [
+    {
+      "name": "CameraForm",
+      "displayName": "$string:camera_form_name",
+      "description": "$string:camera_form_desc",
+      "src": "./ets/formpages/CameraFormPage.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "transparencyEnabled": true,
+      "formConfigAbility": "ability://CameraFormAbility",
+      "isDefault": false,
+      "isDynamic": true,
+      "updateEnabled": false,
+      "defaultDimension": "2*2",
+      "supportDimensions": [
+        "2*2"
+      ],
+      "metadata": []
+    }
+  ]
+}

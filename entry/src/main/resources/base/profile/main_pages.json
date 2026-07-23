@@ -1,0 +1,20 @@
+{
+  "src": [
+    "pages/MainPage",
+    "pages/DiaryEditPage",
+    "pages/DiaryDetailPage",
+    "pages/GestureDiaryFlowPage",
+    "pages/VoiceAssistantPage",
+    "pages/PomodoroPage",
+    "pages/SecurityLockPage",
+    "pages/TaskConfirmPage",
+    "pages/CalendarPage",
+    "pages/TodoPage",
+    "pages/TomorrowPage",
+    "pages/ElderModePage",
+    "pages/FamilyPage",
+    "pages/LoginPage",
+    "pages/BackupPreviewPage",
+    "pages/QuickCameraPage"
+  ]
+}

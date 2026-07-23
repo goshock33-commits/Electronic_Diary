@@ -1,0 +1,12 @@
+{
+  "name": "features/sections",
+  "version": "1.0.0",
+  "description": "Feature module: sections",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared",
+    "features_task_extraction": "file:../task-extraction"
+  }
+}

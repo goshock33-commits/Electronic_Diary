@@ -1,0 +1,13 @@
+{
+  "module": {
+    "name": "shared",
+    "type": "har",
+    "description": "Shared HAR module for HuaweiDiary",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1",
+      "wearable"
+    ]
+  }
+}

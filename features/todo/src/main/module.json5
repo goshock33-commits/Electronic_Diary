@@ -1,0 +1,8 @@
+{
+  "module": {
+    "name": "features_todo",
+    "type": "har",
+    "description": "Feature module: todo",
+    "deviceTypes": ["phone", "tablet", "2in1", "wearable"]
+  }
+}

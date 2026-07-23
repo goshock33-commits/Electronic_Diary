@@ -1,0 +1,13 @@
+{
+  "name": "@ohos/shared",
+  "version": "1.0.0",
+  "description": "Shared module for HuaweiDiary - database, theme, components, utils, state management",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/lottie": "^2.0.32"
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
+}

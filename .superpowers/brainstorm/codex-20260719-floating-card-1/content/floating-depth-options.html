@@ -1,0 +1,73 @@
+<style>
+  .comparison-grid { display:grid; grid-template-columns:repeat(3,minmax(240px,1fr)); gap:22px; margin-top:24px; }
+  .depth-option { cursor:pointer; border:2px solid transparent; border-radius:22px; padding:16px; background:#f7f7f5; transition:border-color .18s ease, transform .18s ease; }
+  .depth-option:hover { transform:translateY(-2px); }
+  .depth-option.selected { border-color:#738A9C; box-shadow:0 0 0 4px rgba(115,138,156,.14); }
+  .option-head { display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+  .option-head .letter { flex:0 0 auto; }
+  .option-head h3 { margin:0; }
+  .widget-stage { min-height:310px; padding:26px 18px 20px; border-radius:24px; background:linear-gradient(145deg,#d9e9f6,#93b9dc); display:flex; align-items:center; justify-content:center; }
+  .widget { width:100%; max-width:300px; min-height:220px; border-radius:24px; padding:20px; box-sizing:border-box; color:#20231f; }
+  .widget-header { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.02em; margin-bottom:20px; }
+  .widget-count { margin-left:auto; color:#4CAF50; font-size:14px; }
+  .task-card { display:flex; align-items:center; gap:12px; min-height:64px; box-sizing:border-box; border-radius:15px; padding:0 16px; background:#fff; }
+  .check { width:20px; height:20px; border:3px solid #d4d7d2; border-radius:50%; flex:0 0 auto; }
+  .task-copy { font-size:16px; font-weight:650; }
+  .progress { height:5px; border-radius:8px; background:rgba(0,0,0,.08); margin-top:24px; overflow:hidden; }
+  .progress > i { display:block; width:0%; height:100%; background:#4CAF50; }
+  .a .widget { background:rgba(255,255,255,.88); box-shadow:0 8px 26px rgba(32,64,90,.12); }
+  .a .task-card { box-shadow:0 4px 10px rgba(0,0,0,.12); transform:translateY(-2px); border:1px solid rgba(0,0,0,.04); }
+  .b .widget { background:#f0efeb; border:1px solid rgba(255,255,255,.68); box-shadow:0 8px 28px rgba(32,64,90,.14); }
+  .b .task-card { box-shadow:0 12px 24px rgba(32,39,35,.20),0 2px 5px rgba(32,39,35,.10); transform:translateY(-8px); border:1px solid rgba(255,255,255,.92); }
+  .b .progress { margin-top:18px; }
+  .c .widget { background:#eeece7; box-shadow:0 8px 28px rgba(32,64,90,.14); }
+  .c .task-stack { display:grid; gap:10px; }
+  .c .task-card { min-height:48px; border-radius:13px; box-shadow:0 7px 14px rgba(32,39,35,.17); transform:translateY(-4px); }
+  .c .ghost { opacity:.72; }
+  .caption { margin:14px 2px 0; color:#5e625d; font-size:14px; line-height:1.55; }
+  .recommended { display:inline-block; margin-left:6px; padding:3px 8px; border-radius:999px; color:#fff; background:#738A9C; font-size:11px; vertical-align:middle; }
+  @media (max-width:900px) { .comparison-grid { grid-template-columns:1fr; } }
+</style>
+
+<h2>待办项应该“浮”多高？</h2>
+<p class="subtitle">三种方案都保留当前 2×4 服务卡片结构、真实数据与点击跳转，只调整底卡和待办项之间的空间层级。点击你偏好的方案。</p>
+
+<div class="comparison-grid">
+  <div class="depth-option a" data-choice="a-soft" onclick="toggleSelect(this)">
+    <div class="option-head"><div class="letter">A</div><h3>轻悬浮</h3></div>
+    <div class="widget-stage">
+      <div class="widget">
+        <div class="widget-header"><span>☷</span><span>2026-07-19</span><span class="widget-count">0/1</span></div>
+        <div class="task-card"><span class="check"></span><span class="task-copy">日日日</span></div>
+        <div class="progress"><i></i></div>
+      </div>
+    </div>
+    <p class="caption">只加深阴影并轻微上移。最稳妥，但在亮色桌面上仍可能不够明显。</p>
+  </div>
+
+  <div class="depth-option b" data-choice="b-layered" onclick="toggleSelect(this)">
+    <div class="option-head"><div class="letter">B</div><h3>纸片悬浮 <span class="recommended">推荐</span></h3></div>
+    <div class="widget-stage">
+      <div class="widget">
+        <div class="widget-header"><span>☷</span><span>2026-07-19</span><span class="widget-count">0/1</span></div>
+        <div class="task-card"><span class="check"></span><span class="task-copy">日日日</span></div>
+        <div class="progress"><i></i></div>
+      </div>
+    </div>
+    <p class="caption">底卡改为柔和纸灰，待办项保持纯白并上移 8vp，加双层阴影。层级明确但仍符合当前手绘纸张气质。</p>
+  </div>
+
+  <div class="depth-option c" data-choice="c-individual" onclick="toggleSelect(this)">
+    <div class="option-head"><div class="letter">C</div><h3>逐项悬浮</h3></div>
+    <div class="widget-stage">
+      <div class="widget">
+        <div class="widget-header"><span>☷</span><span>2026-07-19</span><span class="widget-count">0/3</span></div>
+        <div class="task-stack">
+          <div class="task-card"><span class="check"></span><span class="task-copy">日日日</span></div>
+          <div class="task-card ghost"><span class="check"></span><span class="task-copy">整理书桌</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="caption">每条待办都是独立浮层，层级最强；三条数据时阴影较多，2×4 卡片会显得更忙。</p>
+  </div>
+</div>

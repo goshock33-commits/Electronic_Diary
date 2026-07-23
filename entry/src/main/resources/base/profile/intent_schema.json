@@ -1,0 +1,73 @@
+{
+  "intents": [
+    {
+      "intentName": "ExtractTask",
+      "intentVersion": "1.0.0",
+      "description": "小艺AI任务提取意图 - 从文本中提取任务信息",
+      "parameters": {
+        "maxLength": 500
+      },
+      "slots": [
+        {
+          "slotName": "task_title",
+          "slotType": "string",
+          "required": true,
+          "description": "任务标题"
+        },
+        {
+          "slotName": "task_category",
+          "slotType": "enum",
+          "required": true,
+          "enumValues": ["exam", "homework", "meeting", "deadline", "general"],
+          "description": "任务类型"
+        },
+        {
+          "slotName": "task_date",
+          "slotType": "string",
+          "required": false,
+          "description": "任务日期 (YYYY-MM-DD)"
+        },
+        {
+          "slotName": "task_time",
+          "slotType": "string",
+          "required": false,
+          "description": "任务时间 (HH:mm)"
+        },
+        {
+          "slotName": "location",
+          "slotType": "string",
+          "required": false,
+          "description": "活动地点"
+        }
+      ]
+    },
+    {
+      "intentName": "VoiceDiary",
+      "intentVersion": "1.0.0",
+      "description": "小艺语音写日记意图 - 口述内容转日记",
+      "parameters": {
+        "maxLength": 2000
+      },
+      "slots": [
+        {
+          "slotName": "diary_content",
+          "slotType": "string",
+          "required": true,
+          "description": "日记正文内容"
+        },
+        {
+          "slotName": "diary_date",
+          "slotType": "string",
+          "required": false,
+          "description": "日记日期 (YYYY-MM-DD，默认当天)"
+        },
+        {
+          "slotName": "mood",
+          "slotType": "string",
+          "required": false,
+          "description": "心情标签"
+        }
+      ]
+    }
+  ]
+}

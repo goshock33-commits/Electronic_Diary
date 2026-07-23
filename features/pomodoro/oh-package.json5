@@ -1,0 +1,11 @@
+{
+  "name": "features/pomodoro",
+  "version": "1.0.0",
+  "description": "Feature module: pomodoro",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}
