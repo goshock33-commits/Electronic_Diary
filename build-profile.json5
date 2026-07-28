@@ -1,11 +1,27 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "D:/Electronic-Diary-huawei/resource/shock.p12",
+          "storePassword": "0000001C91E604D01B0B066781FCE8C2EA3E688FBD8D489DC680694FF1DFD4BF209063A8FEE05E7468E63856",
+          "keyAlias": "shock",
+          "keyPassword": "0000001C708E51108E628BE424F39DD300A90A6916F9C197719CB2B3FA180A1306B819BA2E2AE214D56A7B43",
+          "signAlg": "SHA256withECDSA",
+          "profile": "D:/云测试Release.p7b",
+          "certpath": "D:/云测试.cer"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
-        "targetSdkVersion": "6.1.1(24)",
+        "signingConfig": "default",
+        "compileSdkVersion": "6.1.1(24)",
         "compatibleSdkVersion": "6.1.1(24)",
+        "targetSdkVersion": "6.1.1(24)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
