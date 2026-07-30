@@ -45,13 +45,9 @@ export interface FontFamilyPresets {
   readonly sans: string;
   /** 衬线位：项目统一复用系统鸿蒙字体（无独立衬线体） */
   readonly serif: string;
-  /** 手绘标题体：猫啃什锦黑（马克笔风格，用于H1/大数字/sectionTitle/eyebrow）
-   *  Fallback 链：MaokenAssortedSans → HarmonyOS Sans → sans-serif
-   *  familyName 须与 EntryAbility.registerSketchFonts() 中一致。 */
+  /** 标题字体：HarmonyOS Sans（标准无衬线） */
   readonly sketchTitle: string;
-  /** 手绘正文字：清松手写体2（自然手写风格，用于body/标签/辅助文字）
-   *  Fallback 链：QingSongHandwriting2 → HarmonyOS Sans → sans-serif
-   *  familyName 须与 EntryAbility.registerSketchFonts() 中一致。 */
+  /** 正文字体：HarmonyOS Sans（标准无衬线） */
   readonly sketchBody: string;
 }
 
@@ -67,6 +63,6 @@ export const FONT: FontFamilyPresets = {
   monoExtraBold: 'JetBrains Mono ExtraBold',
   sans: 'HarmonyOS Sans',
   serif: 'HarmonyOS Sans',
-  sketchTitle: 'MaokenAssortedSans',
-  sketchBody: 'QingSongHandwriting2'
+  sketchTitle: 'HarmonyOS Sans',
+  sketchBody: 'HarmonyOS Sans'
 };

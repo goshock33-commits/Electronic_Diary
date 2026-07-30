@@ -13,6 +13,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DatabaseExecutor } from '../DatabaseExecutor';
 import { Diary } from '../../data/Diary';
 import { DailyCount } from '../../data/DailyCount';
+import { GlobalSearchService } from '../../search/GlobalSearchService';
 
 const TAG = 'DiaryDao';
 
@@ -36,6 +37,17 @@ export class DiaryDao {
       };
       const rowId = await store.insert('diary_entry', valueBucket);
       hilog.info(0x0000, TAG, 'Diary inserted: date=%{public}s, rowId=%{public}d', diary.date, rowId);
+
+      // fix: DEV-034 · 同步到 FTS5（插入成功后自动建立全文索引）
+      try {
+        if (diary.content && diary.content.trim()) {
+          await GlobalSearchService.syncToFTS5('diary_entry', rowId, diary.content);
+        }
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after insert: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
+
       return rowId;
     });
   }
@@ -162,6 +174,19 @@ export class DiaryDao {
       predicates.equalTo('id', diary.id);
       const affectedRows = await store.update(valueBucket, predicates);
       hilog.info(0x0000, TAG, 'Diary updated: id=%{public}d, affected=%{public}d', diary.id, affectedRows);
+
+      // fix: DEV-034 · 更新 FTS5（内容变更后重新建立索引）
+      try {
+        if (diary.content && diary.content.trim()) {
+          await GlobalSearchService.syncToFTS5('diary_entry', diary.id, diary.content);
+        } else {
+          // 内容为空时删除索引
+          await GlobalSearchService.syncToFTS5('diary_entry', diary.id, '');
+        }
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after update: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
     });
   }
 
@@ -214,10 +239,30 @@ export class DiaryDao {
    */
   static async delete(date: string): Promise<boolean> {
     return DatabaseExecutor.executeWrite<boolean>('DiaryDao.delete', async (store: relationalStore.RdbStore): Promise<boolean> => {
+      // fix: DEV-034 · 删除前先查询该日所有日记的 ID，用于清除 FTS5 索引
+      const sql = "SELECT id FROM diary_entry WHERE date = ?";
+      const resultSet = await store.querySql(sql, [date]);
+      const idsToDelete: number[] = [];
+      while (resultSet.goToNextRow()) {
+        idsToDelete.push(resultSet.getLong(0));
+      }
+      resultSet.close();
+
       const predicates = new relationalStore.RdbPredicates('diary_entry');
       predicates.equalTo('date', date);
       const deletedRows = await store.delete(predicates);
       hilog.info(0x0000, TAG, 'Diary deleted: date=%{public}s, affected=%{public}d', date, deletedRows);
+
+      // fix: DEV-034 · 从 FTS5 删除索引（传空内容）
+      try {
+        for (const id of idsToDelete) {
+          await GlobalSearchService.syncToFTS5('diary_entry', id, '');
+        }
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after delete: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
+
       return deletedRows > 0;
     });
   }
@@ -233,6 +278,15 @@ export class DiaryDao {
       predicates.equalTo('id', id);
       const deletedRows = await store.delete(predicates);
       hilog.info(0x0000, TAG, 'Diary deleted: id=%{public}d, affected=%{public}d', id, deletedRows);
+
+      // fix: DEV-034 · 从 FTS5 删除索引（传空内容）
+      try {
+        await GlobalSearchService.syncToFTS5('diary_entry', id, '');
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after deleteById: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
+
       return deletedRows > 0;
     });
   }

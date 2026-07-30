@@ -10,7 +10,7 @@
 // · 环境降级：shareChannelAvailable 横幅 + 禁用开始按钮
 // · 进度条不造假——里程碑 30/60/70/100 来自真实传输
 // · 删除全部 mock 定时器/mock 设备列表/假设备发现延时/假进度增量
-// · 脉波动画保留（detecting 态视觉反馈）但颜色改为淡青色系
+// · 脉波动画保留（detecting 态视觉反馈）但颜色改为淡蓝色系
 //
 // ── 图标来源（本地库 resource/HarmonyOS_全量图标库.md 已 grep 验证，PROJECT_SPEC §10）──
 // · nfc（行1426）/ nfc_fill（行1430）/ nosign（行1480）
@@ -114,15 +114,15 @@ export struct NfcSharePage {
   }
 
   private getPrimary(): string {
-    return this.tokens ? this.tokens.primary : '#00C2B8';
+    return this.tokens ? this.tokens.primary : '#0A59F7';
   }
 
   private getSuccess(): string {
-    return this.tokens ? this.tokens.success : '#00C2B8';
+    return this.tokens ? this.tokens.success : '#52C41A';
   }
 
   private getDanger(): string {
-    return this.tokens ? this.tokens.danger : '#78909C';
+    return this.tokens ? this.tokens.danger : '#FF4D4F';
   }
 
   private getTextPrimary(): string {
@@ -130,24 +130,24 @@ export struct NfcSharePage {
   }
 
   private getTextSecondary(): string {
-    return this.tokens ? this.tokens.textSecondary : '#5A5A5A';
+    return this.tokens ? this.tokens.textSecondary : '#666666';
   }
 
   private getTextTertiary(): string {
-    return this.tokens ? this.tokens.textTertiary : '#8A8A8A';
+    return this.tokens ? this.tokens.textTertiary : '#999999';
   }
 
   private getSurface(): string {
-    return this.tokens ? this.tokens.surface : '#F2F4F3';
+    return this.tokens ? this.tokens.surface : '#F0F4F8';
   }
 
   private getRingTrack(): string {
-    return this.tokens ? this.tokens.divider : '#EAEAEA';
+    return this.tokens ? this.tokens.divider : '#E0E6ED';
   }
 
-  /** 淡青色波纹颜色（#80E0D6，为项目主色 #00C2B8 的明亮变体） */
+  /** 淡蓝色波纹颜色（#7BA8FB，为项目主色 #0A59F7 的明亮变体） */
   private getRippleColor(): string {
-    return '#80E0D6';
+    return '#7BA8FB';
   }
 
   /** 半透明版本：ArkUI hex-alpha 为 #AARRGGBB，需前置 alpha */
@@ -519,7 +519,7 @@ export struct NfcSharePage {
         .fontSize(TYPO.cardTitle.size)
         .fontWeight(TYPO.cardTitle.weight)
         .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
         .width('80%')
         .height(H_CTA)
         .borderRadius(R_PILL)
@@ -530,11 +530,11 @@ export struct NfcSharePage {
     }
   }
 
-  // ==== detecting：淡青色双层同心脉冲圆 + 中置 nfc（图标风格对齐 idle）====
+  // ==== detecting：淡蓝色双层同心脉冲圆 + 中置 nfc（图标风格对齐 idle）====
   @Builder
   DetectingStage() {
     Stack({ alignContent: Alignment.Center }) {
-      // 双层脉冲扩散环（淡青色系，错峰放大 + 透明度递减）
+      // 双层脉冲扩散环（淡蓝色系，错峰放大 + 透明度递减）
       Circle({ width: SZ_PULSE, height: SZ_PULSE })
         .fill(this.getRippleColor())
         .opacity(this.ring1Opacity)
@@ -610,7 +610,7 @@ export struct NfcSharePage {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
 
-    // 加密传输青药丸
+    // 加密传输蓝药丸
     Row() {
       SymbolGlyph(IconMapper.LOCK)
         .fontSize(14)
@@ -722,7 +722,7 @@ export struct NfcSharePage {
       .fontSize(TYPO.cardTitle.size)
       .fontWeight(TYPO.cardTitle.weight)
       .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-      .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+      .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
       .width('80%')
       .height(H_CTA)
       .borderRadius(R_PILL)
@@ -779,8 +779,8 @@ export struct NfcSharePage {
       .height('100%')
       .borderRadius(R_PILL)
       .backgroundColor(this.scenario === target
-        ? (this.tokens ? this.tokens.btnPrimary : '#738A9C')
-        : (this.tokens ? this.tokens.surface : '#FFFFFF'))
+        ? (this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+        : (this.tokens ? this.tokens.surface : '#F0F4F8'))
       .opacity(this.canSwitchMode() ? 1 : 0.4)
       .onClick(() => {
         this.switchScenario(target);

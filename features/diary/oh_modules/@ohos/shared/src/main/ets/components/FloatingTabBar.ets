@@ -53,17 +53,16 @@ const BUBBLE_CENTER_OFFSET: number = (MOBILE_ITEM_STRIDE - BUBBLE_DIAMETER) / 2;
  * （surface→深、textPrimary→浅），故此二者按用户锁定的固定浅色实现（深浅一致），不写死任何青色。
  * 栏体/未选中图标/未选中文字仍走 this.tokens（cCardBg / cTextTertiary），随主题自适应。
  */
-const BUBBLE_FILL_TOP: string = '#FFFFFF';
-const BUBBLE_ICON_COLOR: string = '#1A1A1A';
-/** 光影：纯黑/白低透（与主题无关的物理光影，强档；阴影一律黑低透，无青染） */
-const BUBBLE_RIM: string = 'rgba(0,0,0,0.10)';          // 1px 暗环（勾边防白圆糊进白栏）
-const BUBBLE_SHADOW_DROP: string = 'rgba(0,0,0,0.22)';  // 落影 0 10px 24px
-const BUBBLE_SHADOW_NEAR: string = 'rgba(0,0,0,0.14)';  // 近影 0 3px 8px
-const BUBBLE_CONTACT: string = 'rgba(0,0,0,0.16)';      // 栏面接触影
-const BUBBLE_INNER_HI: string = 'rgba(255,255,255,0.95)'; // 顶部内高光
-const BUBBLE_INNER_LO: string = 'rgba(0,0,0,0.06)';       // 底部内阴影
-const BUBBLE_TRANS_W: string = 'rgba(255,255,255,0)';     // 透明白停靠（避免渐变灰脏）
-const BUBBLE_TRANS_K: string = 'rgba(0,0,0,0)';           // 透明黑停靠
+const BUBBLE_FILL_TOP: string = '#0A59F7';
+const BUBBLE_ICON_COLOR: string = '#FFFFFF';
+const BUBBLE_RIM: string = 'rgba(10,89,247,0.25)';
+const BUBBLE_SHADOW_DROP: string = 'rgba(10,89,247,0.30)';
+const BUBBLE_SHADOW_NEAR: string = 'rgba(10,89,247,0.18)';
+const BUBBLE_CONTACT: string = 'rgba(10,89,247,0.12)';
+const BUBBLE_INNER_HI: string = 'rgba(255,255,255,0.25)';
+const BUBBLE_INNER_LO: string = 'rgba(0,0,0,0.12)';
+const BUBBLE_TRANS_W: string = 'rgba(255,255,255,0)';
+const BUBBLE_TRANS_K: string = 'rgba(0,0,0,0)';
 
 /**
  * FloatingTabBar 配置接口
@@ -253,31 +252,21 @@ export struct FloatingTabBar {
                 })
               }
             } else {
-              // HUI-新图标：自定义 PNG 图标，纯白圆底+放大
-              Stack() {
-                Circle()
-                  .width(40)
-                  .height(40)
-                  .fill('#FFFFFF')
-                  .shadow({ radius: 4, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 2 })
-                Image(this.tabKeyToImage(tab.key))
-                  .width(56)
-                  .height(56)
-                  .objectFit(ImageFit.Contain)
-                  .opacity(this.isActive(tab.key) ? 1.0 : 0.5)
-              }
-              .width(40)
-              .height(40)
+              // 标准 Tab 图标：选中蓝色，未选中灰色
+              SymbolGlyph(this.tabKeyToSymbol(tab.key))
+                .fontSize(24)
+                .fontColor([this.isActive(tab.key) ?
+                  (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                  (this.tokens ? this.tokens.textTertiary : '#999999')])
             }
-            // HUI-019 · 用户视觉调整：仅 AI Tab 去掉可见文字标签（纯 TalkBot 动画）；其余 4 Tab 图标+文字两行。
-            //   黑白 v4：选中项文字随图标升入白圆而隐藏（白圆内仅黑图标，无文字，对齐设计想象图）；
-            //   未选中项保留中性灰文字。无障碍语义仍由外层 Column.accessibilityText 保留。
-            if (tab.key !== 'ai' && !this.isActive(tab.key)) {
-              Text(tab.label)
-                .fontSize(10)
-                .fontWeight(500)
-                .fontColor(this.cTextTertiary())
-            }
+            // 所有 Tab 始终显示文字标签
+            Text(tab.label)
+              .fontSize(10)
+              .fontWeight(this.isActive(tab.key) ? FontWeight.Medium : FontWeight.Normal)
+              .fontColor(this.isActive(tab.key) ?
+                (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                (this.tokens ? this.tokens.textTertiary : '#999999'))
+              .margin({ top: 2 })
           }
           .width(56)
           .height(56)
@@ -383,10 +372,6 @@ export struct FloatingTabBar {
     .height(this.isBallMode ? this.BALL_SIZE : MOBILE_BAR_HEIGHT)
     .borderRadius(this.isBallMode ? this.BALL_SIZE / 2 : RADIUS.card)
     .padding(this.isBallMode ? 0 : 4)
-    // HUI-019 · T-LT04 视觉调整：浮球态去掉青色圆底 —— 背景透明 / 无 backdropBlur / 无 shadow / 无 border，
-    //   让 TalkBot 动画裸露显示（不要青色圆盘）。胶囊态一律保持原样（cCardBg / blur12 / shadow24 / cBorder）。
-    //   仅改绘制属性，不改尺寸/位置/clip/padding，故命中区域(60×60)、层3 的 hitTestBehavior(Block)+GestureGroup
-    //   拖拽/点击照常（背景透明不影响 ArkUI 命中测试）。
     .backgroundColor(this.isBallMode ? Color.Transparent : this.cCardBg())
     .backdropBlur(this.isBallMode ? 0 : 12)
     .shadow({
@@ -395,14 +380,6 @@ export struct FloatingTabBar {
       offsetX: 0,
       offsetY: 4
     })
-    // 🔴 z-order 修复（真机实测「细线横穿圆」根因）：移除栏 1px border(cBorder)。
-    //   根因：骑栏白圆是本胶囊 Stack 的子层(层1)，而容器 .border() 在渲染时绘制于子层之上 →
-    //   栏上/下边缘线横穿过凸出栏外的白圆（圆已是实心白，不透明，故非填充透明，是层级/边框压圆）。
-    //   最稳修法(方案B)：去掉该 border，不重构脆弱的命中/浮球层级（避免回归）。栏边缘改由
-    //   shadow(radius24)+backdropBlur(12)+底色(cCardBg)对比 定义；圆覆盖范围内不再有任何栏边线。
-    //   浮球态本就 border 宽 0，行为完全不变。
-    // 黑白 v4：胶囊态关闭 clip，让骑栏白圆上下各凸出 ≈6.4vp 的完整圆不被裁切；
-    //   ⛔ 浮球态仍 clip(true)（保持 HUI-019 TalkBot「裁空白角」行为完全不变）。
     .clip(this.isBallMode)
     .position({ x: this.currentX(), y: this.currentY() })
     // 交互职责拆分（HUI-001 根治 AI Tab 偶发点击失灵）：
@@ -412,69 +389,20 @@ export struct FloatingTabBar {
   }
 
   /**
-   * 骑栏白圆气泡（选中态指示器 · 黑白 v4）—— 替换原青色实心球。手机(横栏)/平板(竖栏 MiniBar) 共用。
-   *
-   * 几何：直径 = 栏厚 ×1.2 = 76.8vp（手机栏高 64 == 平板栏宽 64，故复用 BUBBLE_DIAMETER）；
-   *      圆心居栏厚方向正中 → 沿栏厚两侧各凸出 ≈6.4vp（完整圆双凸不裁切）；
-   *      沿栏长方向锚当前 Tab 中心，随 getActiveIndex() 以 SLIDE_SPRING（interpolatingSpring 350/25）平滑滑移。
-   *      滑移轴由 bubbleTranslateX/Y 按 layoutDirection 决定（手机横滑 / 平板竖滑）。
-   * 层位：Tab 行之下（沿用原层 1 的 z 位）；hitTestBehavior(None) 不入手势竞技场；
-   *      父容器不裁切上下/左右凸出（手机胶囊态 clip(false)，平板 Stack 默认 clip false）。⛔ 不参与 isBallMode/TalkBot 逻辑。
-   * 光影（纯黑白低透 · 无青染 · 强档）：栏面接触影(径向) + 落影(0 10 24) + 近影(0 3 8) + 1px 暗环 + 顶亮底暗内影。
-   * 可见性：isBubbleVisible()（手机展开态 5 标签(含 AI)均显示、浮球/收缩态隐藏；平板恒显示，见方法）。
+   * 滑动小圆点指示器（选中态）—— spring 滑移跟随当前 Tab。
+   * 手机(横栏)/平板(竖栏 MiniBar) 共用。
    */
   @Builder
   buildRidingBubble() {
-    Stack({ alignContent: Alignment.Center }) {
-      // a) 栏面接触影：黑低透径向渐变椭圆，垫在栏面制造「骑栏落地」感（最底层，略低于圆心）
-      Column()
-        .width(BUBBLE_DIAMETER * 0.82)
-        .height(BUBBLE_DIAMETER * 0.32)
-        .borderRadius(BUBBLE_DIAMETER * 0.16)
-        .radialGradient({
-          center: [BUBBLE_DIAMETER * 0.41, BUBBLE_DIAMETER * 0.16],
-          radius: BUBBLE_DIAMETER * 0.41,
-          colors: [[BUBBLE_CONTACT, 0.0], [BUBBLE_TRANS_K, 1.0]]
-        })
-        .offset({ x: 0, y: BUBBLE_DIAMETER * 0.06 })
-
-      // b) 落影承载：白圆本体（承 0 10 24 大范围柔和落影，令圆「抬离」栏面；被 c) 覆盖，仅落影外溢可见）
-      //    实心白 backgroundColor（无 alpha）作不透明底盘，保证覆盖范围内绝不透出栏面/边框。
-      Column()
-        .width(BUBBLE_DIAMETER)
-        .height(BUBBLE_DIAMETER)
-        .borderRadius(BUBBLE_DIAMETER / 2)
-        .backgroundColor(BUBBLE_FILL_TOP)
-        .shadow({ radius: 24, color: BUBBLE_SHADOW_DROP, offsetX: 0, offsetY: 10 })
-
-      // c) 白圆可见体：实心不透明白填充 + 1px 暗环 + 0 3 8 近影 + 顶亮底暗内影叠层
-      Column() {
-        // 顶部内高光 + 底部内阴影（球体受光叠层：白→透明→黑，纯黑白 alpha 无青染；仅叠在不透明白盘之上做体积）
-        Column()
-          .width('100%')
-          .height('100%')
-          .borderRadius(BUBBLE_DIAMETER / 2)
-          .linearGradient({
-            angle: 180,
-            colors: [[BUBBLE_INNER_HI, 0.0], [BUBBLE_TRANS_W, 0.34], [BUBBLE_TRANS_K, 0.72], [BUBBLE_INNER_LO, 1.0]]
-          })
-      }
-      .width(BUBBLE_DIAMETER)
-      .height(BUBBLE_DIAMETER)
-      .borderRadius(BUBBLE_DIAMETER / 2)
-      // 🔴 透明根因修复：原填充用 linearGradient(半透边缘/真机渲染不实心)→透出导航栏 border/轮廓线。
-      //   改为 100% 不透明实心白 backgroundColor（无 alpha、无 backdropBlur），彻底盖死覆盖范围内的
-      //   栏边框/轮廓线/栏面，圆内只见干净白底+黑图标。体积渐变由上方内高光叠层提供；落影/近影/暗环/接触影景深全保留。
-      .backgroundColor(BUBBLE_FILL_TOP)
-      .border({ width: 1, color: BUBBLE_RIM })
-      .shadow({ radius: 8, color: BUBBLE_SHADOW_NEAR, offsetX: 0, offsetY: 3 })
-    }
-    .width(BUBBLE_DIAMETER)
-    .height(BUBBLE_DIAMETER)
-    .translate({ x: this.bubbleTranslateX(), y: this.bubbleTranslateY() })
-    .animation({ curve: SLIDE_SPRING })
-    .opacity(this.isBubbleVisible() ? 1 : 0)
-    .hitTestBehavior(HitTestMode.None)
+    Column()
+      .width(6)
+      .height(6)
+      .borderRadius(3)
+      .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+      .translate({ x: this.bubbleTranslateX() + 25, y: this.bubbleTranslateY() - 4 })
+      .animation({ curve: SLIDE_SPRING })
+      .opacity(this.isBubbleVisible() ? 1 : 0)
+      .hitTestBehavior(HitTestMode.None)
   }
 
   /**
@@ -509,21 +437,12 @@ export struct FloatingTabBar {
                 shouldPlay: true
               })
             } else {
-              // HUI-新图标：自定义 PNG 图标，纯白圆底+放大
-              Stack() {
-                Circle()
-                  .width(40)
-                  .height(40)
-                  .fill('#FFFFFF')
-                  .shadow({ radius: 4, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 2 })
-                Image(this.tabKeyToImage(tab.key))
-                  .width(56)
-                  .height(56)
-                  .objectFit(ImageFit.Contain)
-                  .opacity(this.isActive(tab.key) ? 1.0 : 0.5)
-              }
-              .width(40)
-              .height(40)
+              // 标准 Tab 图标：选中蓝色，未选中灰色
+              SymbolGlyph(this.tabKeyToSymbol(tab.key))
+                .fontSize(22)
+                .fontColor([this.isActive(tab.key) ?
+                  (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                  (this.tokens ? this.tokens.textTertiary : '#999999')])
             }
           }
           .width(56)
@@ -716,15 +635,15 @@ export struct FloatingTabBar {
   }
 
   private cBorder(): string {
-    return this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)';
+    return this.tokens ? this.tokens.border : '#E0E6ED';
   }
 
   private cShadow(): string {
-    return this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)';
+    return this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)';
   }
 
   private cTextTertiary(): string {
-    return this.tokens ? this.tokens.textTertiary : '#BDBDBD';
+    return this.tokens ? this.tokens.textTertiary : '#999999';
   }
 
   /**
@@ -788,12 +707,12 @@ export struct FloatingTabBar {
    */
   private tabKeyToImage(key: string): Resource {
     switch (key) {
+      case 'home':
+        return $r('app.media.icon_diary');
       case 'diary':
         return $r('app.media.icon_diary');
-      case 'timeline':
+      case 'todo':
         return $r('app.media.icon_timeline');
-      case 'explore':
-        return $r('app.media.icon_explore');
       case 'profile':
         return $r('app.media.icon_profile');
       default:
@@ -811,14 +730,14 @@ export struct FloatingTabBar {
    */
   private tabKeyToSymbol(key: string): Resource {
     switch (key) {
+      case 'home':
+        return IconMapper.NAV_DIARY;
       case 'diary':
         return IconMapper.NAV_DIARY;
-      case 'timeline':
-        return IconMapper.NAV_TIMELINE;
       case 'ai':
         return IconMapper.AI_COMPANION;
-      case 'explore':
-        return IconMapper.NAV_EXPLORE;
+      case 'todo':
+        return IconMapper.NAV_TIMELINE;
       case 'profile':
         return IconMapper.NAV_PROFILE;
       default:

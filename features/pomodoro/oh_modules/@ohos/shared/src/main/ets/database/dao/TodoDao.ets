@@ -2,6 +2,8 @@
 // fix: DEV-013 · 待办提醒增强：insert/update/rowToTodoItem 覆盖 due_date/due_time/location/
 //   custom_tags/remind_at/reminder_id 6 新列；新增 updateReminderRef（调度成功写回提醒引用）
 //   与 queryPendingReminders（未完成+提醒未过期，冷启动恢复调度用）。
+// fix: DEV-004 · T011 家庭待办字段：insert/update/rowToTodoItem 覆盖 from_uid / is_family_todo
+//   （表列自愈见 DatabaseHelper.ensureTodoFamilyColumns；读回用 isColumnNull 兜底老数据）
 // File: TodoDao.ets
 // Task: M02 DAO async migration - TodoItem CRUD + toggle completion
 // Architecture: ARC-001 4.1 TodoDao API
@@ -15,6 +17,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DatabaseExecutor } from '../DatabaseExecutor';
 import { TodoItem } from '../../data/TodoItem';
 import { DailyCount } from '../../data/DailyCount';
+import { GlobalSearchService } from '../../search/GlobalSearchService';
 
 const TAG = 'TodoDao';
 
@@ -40,11 +43,27 @@ export class TodoDao {
         'custom_tags': todo.custom_tags,
         'remind_at': todo.remind_at,
         'reminder_id': todo.reminder_id,
+        // fix: DEV-004 · T011 家庭待办字段写入（from_uid 可空；is_family_todo 0/1）
+        'from_uid': todo.from_uid,
+        'is_family_todo': todo.is_family_todo,
+        // fix: DEV-015 · 修复 assignee_member_id 死列（待办指派字段写入）
+        'assignee_member_id': todo.assignee_member_id,
         'created_at': todo.created_at,
         'updated_at': todo.updated_at
       };
       const rowId = await store.insert('todo', valueBucket);
       hilog.info(0x0000, TAG, 'Todo inserted: title=%{public}s, rowId=%{public}d', todo.title, rowId);
+
+      // fix: DEV-034 · 同步到 FTS5（插入成功后自动建立全文索引）
+      try {
+        if (todo.title && todo.title.trim()) {
+          await GlobalSearchService.syncToFTS5('todo', rowId, todo.title);
+        }
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after insert: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
+
       return rowId;
     });
   }
@@ -70,11 +89,29 @@ export class TodoDao {
         'custom_tags': todo.custom_tags,
         'remind_at': todo.remind_at,
         'reminder_id': todo.reminder_id,
+        // fix: DEV-004 · T011 家庭待办字段更新（编辑待办不丢失来源/家庭标记）
+        'from_uid': todo.from_uid,
+        'is_family_todo': todo.is_family_todo,
+        // fix: DEV-015 · 修复 assignee_member_id 死列（待办指派字段更新）
+        'assignee_member_id': todo.assignee_member_id,
         'updated_at': todo.updated_at
       };
       const predicates = new relationalStore.RdbPredicates('todo');
       predicates.equalTo('id', todo.id);
       await store.update(valueBucket, predicates);
+
+      // fix: DEV-034 · 更新 FTS5（内容变更后重新建立索引）
+      try {
+        if (todo.title && todo.title.trim()) {
+          await GlobalSearchService.syncToFTS5('todo', todo.id, todo.title);
+        } else {
+          // 标题为空时删除索引
+          await GlobalSearchService.syncToFTS5('todo', todo.id, '');
+        }
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after update: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
     });
   }
 
@@ -88,6 +125,14 @@ export class TodoDao {
       predicates.equalTo('id', id);
       const affected = await store.delete(predicates);
       hilog.info(0x0000, TAG, 'Todo deleted: id=%{public}d, affected=%{public}d', id, affected);
+
+      // fix: DEV-034 · 从 FTS5 删除索引（传空内容）
+      try {
+        await GlobalSearchService.syncToFTS5('todo', id, '');
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'FTS5 sync failed after delete: %{public}s', (err as Error).message);
+        // 不抛出错误，继续正常流程
+      }
     });
   }
 
@@ -109,6 +154,26 @@ export class TodoDao {
       }
       resultSet.close();
       return todos;
+    });
+  }
+
+  /**
+   * DEV-020: Query todo by ID (for GlobalSearchService FTS5 result mapping).
+   * @param id Todo ID
+   * @returns Promise<TodoItem | null> Null if not found
+   */
+  static async queryById(id: number): Promise<TodoItem | null> {
+    return DatabaseExecutor.executeRead<TodoItem | null>('TodoDao.queryById', async (store: relationalStore.RdbStore): Promise<TodoItem | null> => {
+      const predicates = new relationalStore.RdbPredicates('todo');
+      predicates.equalTo('id', id);
+      const resultSet = await store.query(predicates);
+      if (resultSet.goToFirstRow()) {
+        const todo = TodoDao.rowToTodoItem(resultSet);
+        resultSet.close();
+        return todo;
+      }
+      resultSet.close();
+      return null;
     });
   }
 
@@ -313,6 +378,17 @@ export class TodoDao {
     const reminderIdIdx = resultSet.getColumnIndex('reminder_id');
     todo.reminder_id = (reminderIdIdx >= 0 && !resultSet.isColumnNull(reminderIdIdx))
       ? resultSet.getLong(reminderIdIdx) : null;
+    // fix: DEV-004 · T011 家庭待办 2 列读回（自愈补列可空；索引<0/NULL 回退模型默认值，防病态库崩溃）
+    const fromUidIdx = resultSet.getColumnIndex('from_uid');
+    todo.from_uid = (fromUidIdx >= 0 && !resultSet.isColumnNull(fromUidIdx))
+      ? resultSet.getString(fromUidIdx) : null;
+    const isFamilyTodoIdx = resultSet.getColumnIndex('is_family_todo');
+    todo.is_family_todo = (isFamilyTodoIdx >= 0 && !resultSet.isColumnNull(isFamilyTodoIdx))
+      ? resultSet.getLong(isFamilyTodoIdx) : 0;
+    // fix: DEV-015 · 修复 assignee_member_id 死列（待办指派字段读取，兜底老数据）
+    const assigneeMemberIdIdx = resultSet.getColumnIndex('assignee_member_id');
+    todo.assignee_member_id = (assigneeMemberIdIdx >= 0 && !resultSet.isColumnNull(assigneeMemberIdIdx))
+      ? resultSet.getLong(assigneeMemberIdIdx) : null;
     todo.created_at = resultSet.getLong(resultSet.getColumnIndex('created_at'));
     todo.updated_at = resultSet.getLong(resultSet.getColumnIndex('updated_at'));
     return todo;

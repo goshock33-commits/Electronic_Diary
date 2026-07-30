@@ -3,6 +3,8 @@
 // <!-- agentID: DEV-013 --> 待办提醒增强：补 due_date/due_time/location/custom_tags/remind_at/reminder_id
 //   6 字段（表列自愈补列见 DatabaseHelper.ensureTodoReminderColumns；读写见 TodoDao）。
 //   custom_tags 以 JSON 数组字符串落库（RDB 无数组列型，先例：diary.images TEXT DEFAULT '[]'）。
+// fix: DEV-004 · T011 家庭待办字段：补 from_uid / is_family_todo
+//   （表列见 DatabaseHelper.ensureTodoFamilyColumns；读写见 TodoDao insert/update/rowToTodoItem）
 // Task: T002 TodoItem entity - architecture 5.2 table 3
 
 export class TodoItem {
@@ -29,6 +31,10 @@ export class TodoItem {
   reminder_id: number | null = null;
   /** DEV-FAMILY 指派成员 id（逻辑引用 family_member.id；null=未指派） */
   assignee_member_id: number | null = null;
+  /** T011 家庭待办发送人 uid（null=本人创建的个人待办） */
+  from_uid: string | null = null;
+  /** T011 是否家庭待办（0=个人 1=家庭互动待办） */
+  is_family_todo: number = 0;
   created_at: number = 0;
   updated_at: number = 0;
 

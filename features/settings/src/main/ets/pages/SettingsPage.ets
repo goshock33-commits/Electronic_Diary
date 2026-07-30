@@ -323,7 +323,7 @@ export struct SettingsPage {
           Text('APP SYSTEM SETTINGS')
             .fontSize(TYPO.eyebrow.size)
             .fontWeight(700)
-            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
             .opacity(0.6)
             .letterSpacing(3)
             .accessibilityLevel('no')
@@ -364,13 +364,13 @@ export struct SettingsPage {
             .height(48)
             .fontSize(TYPO.cardTitle.size)
             .fontWeight(TYPO.cardTitle.weight)
-            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .fontColor(this.tokens ? this.tokens.danger : '#FF4D4F')
             .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-            .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)' })
-            .borderRadius(RADIUS.cardLg)
+            .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
+            .borderRadius(RADIUS.card)
             .shadow({
               radius: 12,
-              color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)',
+              color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
               offsetX: 0,
               offsetY: 4
             })
@@ -386,7 +386,7 @@ export struct SettingsPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+    .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
 
@@ -471,14 +471,14 @@ export struct SettingsPage {
             if (!this.isAccountLoggedIn) {
               SymbolGlyph(IconMapper.FORWARD)
                 .fontSize(14)
-                .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+                .fontColor([this.tokens ? this.tokens.textSecondary : '#666666'])
                 .margin({ left: 8 })
             }
           }
 
           Text(this.isAccountLoggedIn ? '点击可编辑昵称' : '点击登录账号')
             .fontSize(TYPO.eyebrow.size)
-            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
             .opacity(0.7)
             .margin({ top: 4 })
             .attributeModifier(SKETCH_BODY)
@@ -499,13 +499,13 @@ export struct SettingsPage {
 
     }
     .width('100%')
-    .borderRadius(RADIUS.cardLg)
+    .borderRadius(RADIUS.card)
     .padding(SPACING.cardPadMd)
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)' })
+    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
     .shadow({
       radius: 12,
-      color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)',
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
       offsetX: 0,
       offsetY: 4
     })
@@ -599,13 +599,13 @@ export struct SettingsPage {
       )
     }
     .width('100%')
-    .borderRadius(RADIUS.cardLg)
+    .borderRadius(RADIUS.card)
     .padding(SPACING.cardPadMd)
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)' })
+    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
     .shadow({
       radius: 12,
-      color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)',
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
       offsetX: 0,
       offsetY: 4
     })
@@ -650,13 +650,13 @@ export struct SettingsPage {
       )
     }
     .width('100%')
-    .borderRadius(RADIUS.cardLg)
+    .borderRadius(RADIUS.card)
     .padding(SPACING.cardPadMd)
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)' })
+    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
     .shadow({
       radius: 12,
-      color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)',
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
       offsetX: 0,
       offsetY: 4
     })
@@ -677,7 +677,7 @@ export struct SettingsPage {
       Row() {
         SymbolGlyph(IconMapper.LOCK)
           .fontSize(18)
-          .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+          .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
           .margin({ right: 12 })
 
         Column() {
@@ -688,7 +688,7 @@ export struct SettingsPage {
             .attributeModifier(SKETCH_BODY) // HUI-026：行标题→清松手写体2
           Text('4 位 PIN 码保护')
             .fontSize(TYPO.eyebrow.size)
-            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
             .opacity(0.7)
             .margin({ top: 2 })
             .attributeModifier(SKETCH_BODY) // HUI-026：行说明→清松手写体2
@@ -697,14 +697,14 @@ export struct SettingsPage {
         .layoutWeight(1)
 
         Toggle({ type: ToggleType.Switch, isOn: this.isSecurityLockOn })
-          .selectedColor(this.tokens ? this.tokens.switchOn : '#C6BBAE') // HUI-034：系统开关 ON 态套 switchOn 燕麦
+          .selectedColor(this.tokens ? this.tokens.switchOn : '#0A59F7') // HUI-034：系统开关 ON 态套 switchOn 燕麦
           .onChange((checked: boolean) => { this.setSecurityLock(checked); })
           .accessibilityText('安全锁开关，当前' + (this.isSecurityLockOn ? '开启' : '关闭'))
           .margin({ right: 6 })
 
         SymbolGlyph(IconMapper.FORWARD)
           .fontSize(14)
-          .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+          .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
       }
       .width('100%')
       .height(56)
@@ -758,13 +758,13 @@ export struct SettingsPage {
       )
     }
     .width('100%')
-    .borderRadius(RADIUS.cardLg)
+    .borderRadius(RADIUS.card)
     .padding(SPACING.cardPadMd)
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)' })
+    .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
     .shadow({
       radius: 12,
-      color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)',
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
       offsetX: 0,
       offsetY: 4
     })
@@ -780,7 +780,7 @@ export struct SettingsPage {
       Text(en)
         .fontSize(9)
         .fontWeight(800)
-        .fontColor(this.tokens ? this.tokens.primary : '#00C2B8')
+        .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
         .opacity(0.7)
         .letterSpacing(2)
         .attributeModifier(SKETCH_TITLE) // HUI-026：分组 eyebrow→猫啃什锦黑
@@ -801,7 +801,7 @@ export struct SettingsPage {
   buildDivider() {
     Divider()
       .strokeWidth(0.5)
-      .color(this.tokens ? this.tokens.divider : '#EAEAE6')
+      .color(this.tokens ? this.tokens.divider : '#EEF0F4')
   }
 
   @Builder
@@ -817,13 +817,13 @@ export struct SettingsPage {
 
       Text(value)
         .fontSize(TYPO.body.size)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+        .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
         .maxLines(1)
         .margin({ right: 4 })
 
       SymbolGlyph(IconMapper.FORWARD)
         .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+        .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
     }
     .width('100%')
     .height(52)
@@ -836,7 +836,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph(icon)
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
 
       Text(label)
@@ -849,7 +849,7 @@ export struct SettingsPage {
 
       Text(value)
         .fontSize(TYPO.eyebrow.size)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+        .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
         .opacity(0.7)
         .maxLines(1)
         .margin({ right: 4 })
@@ -858,7 +858,7 @@ export struct SettingsPage {
 
       SymbolGlyph(IconMapper.FORWARD)
         .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+        .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
     }
     .width('100%')
     .height(56)
@@ -879,7 +879,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph(icon)
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
 
       Column() {
@@ -890,7 +890,7 @@ export struct SettingsPage {
           .attributeModifier(SKETCH_BODY) // HUI-026：开关行标题→清松手写体2
         Text(hint)
           .fontSize(TYPO.eyebrow.size)
-          .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
           .opacity(0.7)
           .margin({ top: 2 })
           .attributeModifier(SKETCH_BODY) // HUI-026：开关行说明→清松手写体2
@@ -899,7 +899,7 @@ export struct SettingsPage {
       .layoutWeight(1)
 
       Toggle({ type: ToggleType.Switch, isOn: isOn })
-        .selectedColor(this.tokens ? this.tokens.switchOn : '#C6BBAE') // HUI-034：系统开关 ON 态套 switchOn 燕麦（buildToggleRow 覆盖 每日提醒/摇一摇/悬浮窗 三处）
+        .selectedColor(this.tokens ? this.tokens.switchOn : '#0A59F7') // HUI-034：系统开关 ON 态套 switchOn 燕麦（buildToggleRow 覆盖 每日提醒/摇一摇/悬浮窗 三处）
         .onChange(onToggle)
         .accessibilityText(label + '开关，当前' + (isOn ? '开启' : '关闭'))
     }
@@ -948,7 +948,7 @@ export struct SettingsPage {
       )
     }
     .width('100%')
-    .borderRadius(RADIUS.cardLg)
+    .borderRadius(RADIUS.card)
     .padding(SPACING.cardPadMd)
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
     .border({ width: 1, color: this.tokens ? this.tokens.border : 'rgba(0,0,0,0.08)' })
@@ -967,7 +967,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph($r('sys.symbol.key_horizontal'))
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#5A5A5A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
 
       Text('DeepSeek API Key')
@@ -980,7 +980,7 @@ export struct SettingsPage {
 
       Text(this.apiKeyMask)
         .fontSize(TYPO.eyebrow.size)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+        .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
         .opacity(0.7)
         .maxLines(1)
         .margin({ right: 4 })
@@ -988,7 +988,7 @@ export struct SettingsPage {
 
       SymbolGlyph(IconMapper.FORWARD)
         .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+        .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
     }
     .width('100%')
     .height(56)
@@ -1004,7 +1004,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph($r('sys.symbol.bolt'))
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#5A5A5A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
 
       Text('连接测试')
@@ -1017,7 +1017,7 @@ export struct SettingsPage {
 
       Text(this.isTestingConnection ? '测试中…' : '')
         .fontSize(TYPO.eyebrow.size)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+        .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
         .opacity(0.7)
         .maxLines(1)
         .margin({ right: 4 })
@@ -1025,7 +1025,7 @@ export struct SettingsPage {
 
       SymbolGlyph(IconMapper.FORWARD)
         .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+        .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
     }
     .width('100%')
     .height(56)
@@ -1047,7 +1047,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph($r('sys.symbol.circle_righthalf_inset_filled'))
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
 
       Column() {
@@ -1058,7 +1058,7 @@ export struct SettingsPage {
           .attributeModifier(SKETCH_BODY) // HUI-026：开关行标题→清松手写体2
         Text('增强文字与背景对比，信息层级更分明')
           .fontSize(TYPO.eyebrow.size)
-          .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
           .opacity(0.7)
           .margin({ top: 2 })
           .attributeModifier(SKETCH_BODY) // HUI-026：开关行说明→清松手写体2
@@ -1067,7 +1067,7 @@ export struct SettingsPage {
       .layoutWeight(1)
 
       Toggle({ type: ToggleType.Switch, isOn: this.isHighContrastOn })
-        .selectedColor(this.tokens ? this.tokens.switchOn : '#C6BBAE') // HUI-034：系统开关 ON 态套 switchOn 燕麦
+        .selectedColor(this.tokens ? this.tokens.switchOn : '#0A59F7') // HUI-034：系统开关 ON 态套 switchOn 燕麦
         .onChange((checked: boolean) => {
           this.setHighContrast(checked);
         })
@@ -1092,13 +1092,13 @@ export struct SettingsPage {
 
       Text(this.formatReminderTime())
         .fontSize(TYPO.body.size)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+        .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
         .maxLines(1)
         .margin({ right: 4 })
 
       SymbolGlyph(IconMapper.FORWARD)
         .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+        .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
     }
     .width('100%')
     .height(52)
@@ -1119,7 +1119,7 @@ export struct SettingsPage {
     Row() {
       SymbolGlyph(icon)
         .fontSize(18)
-        .fontColor([this.tokens ? this.tokens.textSecondary : '#8A9B8A'])
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
         .margin({ right: 12 })
       Text(label)
         .fontSize(TYPO.cardTitle.size)
@@ -1141,8 +1141,8 @@ export struct SettingsPage {
           SegPill({
             label: opt.label,
             isActive: this.currentFrostLevel === opt.level,
-            activeBg: this.tokens ? this.tokens.btnPrimary : '#738A9C', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
-            inactiveText: this.tokens ? this.tokens.textSecondary : '#5A5A5A',
+            activeBg: this.tokens ? this.tokens.btnPrimary : '#0A59F7', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
+            inactiveText: this.tokens ? this.tokens.textSecondary : '#666666',
             onTap: () => { this.setFrostLevel(opt.level); }
           })
         }, (opt: FrostLevelOption) => 'frost_' + opt.level)
@@ -1150,7 +1150,7 @@ export struct SettingsPage {
       .width('100%')
       .padding(4)
       .borderRadius(RADIUS.item)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#F2F4F3')
+      .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
@@ -1167,8 +1167,8 @@ export struct SettingsPage {
           SegPill({
             label: opt.label,
             isActive: this.currentDarkModeIdx === opt.modeValue,
-            activeBg: this.tokens ? this.tokens.btnPrimary : '#738A9C', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
-            inactiveText: this.tokens ? this.tokens.textSecondary : '#5A5A5A',
+            activeBg: this.tokens ? this.tokens.btnPrimary : '#0A59F7', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
+            inactiveText: this.tokens ? this.tokens.textSecondary : '#666666',
             onTap: () => { this.setDarkMode(opt.modeValue); }
           })
         }, (opt: DarkModeOption) => 'dark_' + opt.modeValue)
@@ -1176,7 +1176,7 @@ export struct SettingsPage {
       .width('100%')
       .padding(4)
       .borderRadius(RADIUS.item)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#F2F4F3')
+      .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
@@ -1193,8 +1193,8 @@ export struct SettingsPage {
           SegPill({
             label: opt.label,
             isActive: this.currentShakeSensitivity === opt.value,
-            activeBg: this.tokens ? this.tokens.btnPrimary : '#738A9C', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
-            inactiveText: this.tokens ? this.tokens.textSecondary : '#5A5A5A',
+            activeBg: this.tokens ? this.tokens.btnPrimary : '#0A59F7', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
+            inactiveText: this.tokens ? this.tokens.textSecondary : '#666666',
             onTap: () => { this.setShakeSensitivity(opt.value); }
           })
         }, (opt: ShakeSensitivityOption) => 'shake_' + opt.value)
@@ -1202,7 +1202,7 @@ export struct SettingsPage {
       .width('100%')
       .padding(4)
       .borderRadius(RADIUS.item)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#F2F4F3')
+      .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
@@ -1219,8 +1219,8 @@ export struct SettingsPage {
           SegPill({
             label: opt.label,
             isActive: this.currentFontSize === opt.value,
-            activeBg: this.tokens ? this.tokens.btnPrimary : '#738A9C', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
-            inactiveText: this.tokens ? this.tokens.textSecondary : '#5A5A5A',
+            activeBg: this.tokens ? this.tokens.btnPrimary : '#0A59F7', // HUI-036：分段选中底改交互色 btnPrimary 雾霾蓝（原 primary 兜底青）
+            inactiveText: this.tokens ? this.tokens.textSecondary : '#666666',
             onTap: () => { this.setFontSize(opt.value); }
           })
         }, (opt: FontSizeOption) => 'font_' + opt.value)
@@ -1228,7 +1228,7 @@ export struct SettingsPage {
       .width('100%')
       .padding(4)
       .borderRadius(RADIUS.item)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#F2F4F3')
+      .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
@@ -1583,7 +1583,7 @@ struct SegPill {
       .height(32)
       .borderRadius(RADIUS.input)
       // HUI-041：分段未选中态底由死白 #FFFFFF 改读 surface token（浅色 #F7F7F7 / 深色 #242424），修深色白底浅灰字不可见；选中态仍走 activeBg=btnPrimary
-      .backgroundColor(this.isActive ? this.activeBg : (this.tokens ? this.tokens.surface : '#FFFFFF'))
+      .backgroundColor(this.isActive ? this.activeBg : (this.tokens ? this.tokens.surface : '#F0F4F8'))
       .attributeModifier(SKETCH_BODY) // HUI-026：分段药丸标签→清松手写体2
       // 选中态微放大回弹，非选中态略缩以强化层级；spring 过渡使弹性可见
       .scale(this.isActive ? { x: 1, y: 1 } : { x: 0.92, y: 0.92 })

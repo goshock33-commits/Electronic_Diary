@@ -21,6 +21,9 @@ export { Account } from './src/main/ets/data/Account';
 export { type DailyCount } from './src/main/ets/data/DailyCount';
 // DEV-FAMILY — 家庭成员实体（family_member 表，FamilyMemberDao 返回类型）
 export { FamilyMember } from './src/main/ets/data/FamilyMember';
+// DEV-013 — 家庭消息流实体（T032：FamilyMessage 本地模型 + MessageGroup 分组模型）
+export { FamilyMessage } from './src/main/ets/data/FamilyMessage';
+export { MessageGroup } from './src/main/ets/data/MessageGroup';
 
 // ========== 数据库层 ==========
 export { DatabaseHelper } from './src/main/ets/database/DatabaseHelper';
@@ -74,6 +77,16 @@ export { VoiceFocusManager, VoiceFocusState } from './src/main/ets/utils/VoiceFo
 export { FamilyManager, Result, type CreateFamilyResult, type JoinFamilyResult } from './src/main/ets/utils/FamilyManager';
 // DEV+HUI — 登录态管理单例（AGC Auth 云函数认证 + AccountDao 落库，Result<T> 统一返回）
 export { AccountManager } from './src/main/ets/utils/AccountManager';
+// DEV-021 — 华为账号 OAuth 登录服务（HuaweiIDProvider 授权 + unionID/openID uid 规范）
+export { HuaweiAccountLogin } from './src/main/ets/auth/HuaweiAccountLogin';
+// DEV-013 — 家庭消息流管理单例（T032：发送/接收/查询家庭消息）
+export { FamilyMessageManager } from './src/main/ets/utils/FamilyMessageManager';
+// DEV-009 — Push 推送管理单例（T030：Push Kit token 获取/上传/监听统一管理）
+export { PushManager } from './src/main/ets/push/PushManager';
+
+// DEV-020 — 全局搜索服务（T012：FTS5 全文索引 + syncToFTS5/search）
+export { GlobalSearchService } from './src/main/ets/search/GlobalSearchService';
+export { type SearchResult } from './src/main/ets/search/SearchResult';
 
 // 日记封面解析（DEV-001）：上传图优先，否则按稳定 id 取 19 张内置封面（rawfile/covers/）
 export { resolveDiaryCover, BUILTIN_COVER_COUNT } from './src/main/ets/utils/DiaryCoverResolver';
@@ -188,6 +201,6 @@ export { HttpClient, type HttpTextResponse } from './src/main/ets/network/HttpCl
 export { DeepSeekClient, MODEL_ID, BASE_URL, PATH_CHAT, PATH_MODELS, type DSChatOptions } from './src/main/ets/network/DeepSeekClient';
 
 // ========== 云数据库服务（AGC Cloud DB SDK 封装） ==========
-export { CloudDbService, CloudAccount, CloudFamily, CloudFamilyMember, VoiceReminder } from './src/main/ets/cloud/CloudDbService';
+export { CloudDbService, CloudAccount, CloudFamily, CloudFamilyMember, VoiceReminder, CloudFamilyMessage } from './src/main/ets/cloud/CloudDbService';
 // T307 跨设备语音提醒发送端 + push token 上报维护（DEV-VOICE-REMIND）
 export { VoiceReminderSender, VoiceReminderStatus, type VoiceReminderSendOptions } from './src/main/ets/cloud/VoiceReminderSender';

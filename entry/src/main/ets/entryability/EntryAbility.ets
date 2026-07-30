@@ -23,10 +23,11 @@ import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { StartupTasks, ShareUtils, FONT, getThemeManager, ReminderAgentService, NotificationUtils, PersistentState, TodoDao, TodoItem, VoiceReminderSender, KnockShareService, EventBus } from '@ohos/shared';
-import type { BackupImportResult } from '@ohos/shared';
+import { StartupTasks, ShareUtils, FONT, getThemeManager, ReminderAgentService, NotificationUtils, PersistentState, TodoDao, TodoItem, VoiceReminderSender, KnockShareService, EventBus, PushManager, DiaryDao, GlobalSearchService, DatabaseExecutor } from '@ohos/shared';
+import type { BackupImportResult, Diary } from '@ohos/shared';
 import { LiveViewManager } from '../utils/LiveViewManager';
 import { DiaryReminderManager } from '@ohos/shared';
+import { relationalStore } from '@kit.ArkData';
 
 const DOMAIN = 0x0000;
 const TAG = 'EntryAbility';
@@ -58,6 +59,8 @@ export default class EntryAbility extends UIAbility {
   private mainWindowStage: window.WindowStage | null = null;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    hilog.info(DOMAIN, TAG, '🚀🚀🚀 EntryAbility onCreate START 🚀🚀🚀');
+
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     } catch (err) {
@@ -89,10 +92,14 @@ export default class EntryAbility extends UIAbility {
     // P0 sync tasks (database init) complete before first frame
     // P1 async tasks (theme restore, notification channels) run in background
     // P2 idle tasks (quote preload, stats cache) deferred after first frame
-    StartupTasks.executeAll(this.context).then(() => {
-      hilog.info(DOMAIN, TAG, 'AppStartup: all tasks completed');
+    hilog.info(DOMAIN, TAG, '📌 About to call StartupTasks.executeAll');
+    const startupPromise = StartupTasks.executeAll(this.context);
+
+    startupPromise.then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ StartupTasks completed successfully');
     }).catch((err: Error) => {
-      hilog.error(DOMAIN, TAG, 'AppStartup: tasks failed: %{public}s', err.message);
+      hilog.error(DOMAIN, TAG, '❌❌ StartupTasks failed: %{public}s', err.message);
+      hilog.error(DOMAIN, TAG, '❌❌ Stack trace: %{public}s', err.stack ?? 'no stack');
     });
 
     // T035: Initialize LiveView and DiaryReminder systems
@@ -102,10 +109,14 @@ export default class EntryAbility extends UIAbility {
     //   真相源 = app_settings（SettingsViewModel 落库的开关/时间/方式/铃声），等 StartupTasks P0
     //   InitDatabase 完成后经 ReminderAgentService 重发后台代理提醒，保证 App 重启后系统提醒仍在。
     //   替换旧的 DiaryReminderManager Timer 恢复（只响一次+独立 prefs 时间漂移），避免双重调度。
-    StartupTasks.executeAll(this.context).then(() => {
+    hilog.info(DOMAIN, TAG, '📌 About to reschedule daily reminder');
+    startupPromise.then(() => {
+      hilog.info(DOMAIN, TAG, '✅ StartupTasks done, calling ReminderAgentService.rescheduleFromSettings');
       return ReminderAgentService.rescheduleFromSettings();
+    }).then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ Daily reminder rescheduled successfully');
     }).catch((err: Error) => {
-      hilog.error(DOMAIN, TAG, 'M17: reschedule daily reminder failed: %{public}s', err.message);
+      hilog.error(DOMAIN, TAG, '❌❌ M17: reschedule daily reminder failed: %{public}s', err.message);
     });
     // fix: HUI-FRONTEND-2 · M17 首次冷启动申请通知权限——未授权时 publishReminder 抛 1700001 静默失败，
     //   提醒开了也不响。requestPermission 内部已捕获拒绝（返回 false），此处仅记录。
@@ -139,11 +150,44 @@ export default class EntryAbility extends UIAbility {
     // DEV-VOICE-REMIND · T307：云同步初始化（挂 StartupTasks 之后——token/成员上报要查本地库）：
     //   开 Cloud DB zone + 订阅 tokenUpdate + 登录态恢复后上报 push token（写 Account/FamilyMember 云表）。
     //   全链路内部降级（未登录/未配 AGC/断网仅日志），不影响本机功能。
-    StartupTasks.executeAll(this.context).then(() => {
+    hilog.info(DOMAIN, TAG, '📌 About to initialize VoiceReminderSender');
+    startupPromise.then(() => {
+      hilog.info(DOMAIN, TAG, '✅ StartupTasks done, calling VoiceReminderSender.initialize');
       return VoiceReminderSender.getInstance().initialize(this);
+    }).then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ T307: cloud sync initialized successfully');
     }).catch((err: Error) => {
-      hilog.error(DOMAIN, TAG, 'T307: cloud sync init failed: %{public}s', err.message);
+      hilog.error(DOMAIN, TAG, '❌❌ T307: cloud sync init failed: %{public}s', err.message);
     });
+
+    // fix: DEV-014 · 初始化 PushManager（T032 统一推送管理）——挂 StartupTasks 之后（依赖 AccountManager 初始化）：
+    //   ① 获取 push token（带重试） ② 上传 token 到云端 ③ 订阅 tokenUpdate 监听。
+    //   失败不阻塞启动，仅记录日志（内部降级）。
+    // fix: DEV-018 · 传入 this（Ability 实例）而不是 this.context（pushService API 需要 Ability 类型）
+    hilog.info(DOMAIN, TAG, '📌 About to initialize PushManager');
+    startupPromise.then((): Promise<void> => {
+      hilog.info(DOMAIN, TAG, '✅ StartupTasks done, calling PushManager.initialize');
+      return PushManager.getInstance().initialize(this);
+    }).then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ DEV-014: PushManager initialized successfully');
+    }).catch((err: Error) => {
+      hilog.error(DOMAIN, TAG, '❌❌ DEV-014: PushManager init failed: %{public}s', err.message);
+    });
+
+    // fix: DEV-032 · 应用启动时同步数据到 FTS5（挂 StartupTasks 之后，依赖数据库初始化）：
+    //   查询所有日记和待办，同步到 fts_search 表，修复"FTS5 表为空导致搜索无结果"问题。
+    //   失败不阻塞启动，仅记录日志。
+    hilog.info(DOMAIN, TAG, '📌 About to sync FTS5 data');
+    startupPromise.then(() => {
+      hilog.info(DOMAIN, TAG, '✅ StartupTasks done, calling syncFTS5Data');
+      return this.syncFTS5Data();
+    }).then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ DEV-032: FTS5 sync completed successfully');
+    }).catch((err: Error) => {
+      hilog.error(DOMAIN, TAG, '❌❌ DEV-032: FTS5 sync failed: %{public}s', err.message);
+    });
+
+    hilog.info(DOMAIN, TAG, '🏁 EntryAbility onCreate END (async tasks continue)');
   }
 
   // F7: 热启动（应用存活时点提醒通知）——解析路由目标并立即跳转
@@ -381,6 +425,78 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(STORAGE_KEY_ELDER_TTS_SEQ, seq);
     hilog.info(DOMAIN, TAG, 'HUI-T105: elder tts payload published seq=%{public}d len=%{public}d',
       seq, text.length);
+  }
+
+  /**
+   * DEV-032: 同步现有数据到 FTS5 虚拟表（应用启动时执行）
+   *
+   * 问题：FTS5 表为空（0 rows），导致搜索功能搜不到结果。
+   * 解决：启动时查询所有日记和待办，同步到 fts_search 表。
+   *
+   * 策略：
+   * - 日记：DiaryDao.queryAll() 获取所有日记，同步 content 到 FTS5
+   * - 待办：直接查询 todo 表（TodoDao 无 queryAll 方法），同步 title 到 FTS5
+   * - 失败静默降级，不阻塞启动
+   */
+  private async syncFTS5Data(): Promise<void> {
+    const TAG_FTS = 'FTS5Sync';
+    hilog.info(DOMAIN, TAG_FTS, '🔄🔄 syncFTS5Data START');
+
+    try {
+      hilog.info(DOMAIN, TAG_FTS, 'DEV-032: Start syncing existing data to FTS5...');
+
+      // 同步所有日记（使用 DiaryDao.queryAll）
+      hilog.info(DOMAIN, TAG_FTS, '📌 Querying all diaries...');
+      const diaries: Diary[] = await DiaryDao.queryAll();
+      hilog.info(DOMAIN, TAG_FTS, '✅ DiaryDao.queryAll returned %{public}d diaries', diaries.length);
+
+      let diaryCount = 0;
+      for (const diary of diaries) {
+        if (diary.content && diary.content.trim().length > 0) {
+          await GlobalSearchService.syncToFTS5('diary_entry', diary.id, diary.content);
+          diaryCount++;
+        }
+      }
+      hilog.info(DOMAIN, TAG_FTS, '✅ Synced %{public}d diaries to FTS5', diaryCount);
+
+      // 同步所有待办（TodoDao 无 queryAll，使用 DatabaseExecutor 直接查询）
+      hilog.info(DOMAIN, TAG_FTS, '📌 Querying all todos...');
+      const todos: TodoItem[] = await DatabaseExecutor.executeRead<TodoItem[]>(
+        'EntryAbility.syncFTS5Data.queryAllTodos',
+        async (store: relationalStore.RdbStore): Promise<TodoItem[]> => {
+          const sql = 'SELECT * FROM todo ORDER BY date DESC';
+          const resultSet = await store.querySql(sql);
+          const items: TodoItem[] = [];
+          while (resultSet.goToNextRow()) {
+            const todo = new TodoItem();
+            todo.id = resultSet.getLong(resultSet.getColumnIndex('id'));
+            todo.title = resultSet.getString(resultSet.getColumnIndex('title'));
+            todo.date = resultSet.getString(resultSet.getColumnIndex('date'));
+            todo.type = resultSet.getString(resultSet.getColumnIndex('type'));
+            todo.completed = resultSet.getLong(resultSet.getColumnIndex('completed'));
+            items.push(todo);
+          }
+          resultSet.close();
+          return items;
+        }
+      );
+      hilog.info(DOMAIN, TAG_FTS, '✅ DatabaseExecutor returned %{public}d todos', todos.length);
+
+      let todoCount = 0;
+      for (const todo of todos) {
+        if (todo.title && todo.title.trim().length > 0) {
+          await GlobalSearchService.syncToFTS5('todo', todo.id, todo.title);
+          todoCount++;
+        }
+      }
+      hilog.info(DOMAIN, TAG_FTS, '✅ Synced %{public}d todos to FTS5', todoCount);
+
+      hilog.info(DOMAIN, TAG_FTS, '✅✅ DEV-032: FTS5 sync completed - %{public}d diaries, %{public}d todos',
+        diaryCount, todoCount);
+    } catch (err) {
+      hilog.error(DOMAIN, TAG_FTS, '❌❌ DEV-032: FTS5 sync failed: %{public}s', (err as Error).message);
+      hilog.error(DOMAIN, TAG_FTS, '❌❌ Stack trace: %{public}s', (err as Error).stack ?? 'no stack');
+    }
   }
 
   onDestroy(): void {

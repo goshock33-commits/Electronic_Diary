@@ -4,6 +4,7 @@
 // Architecture: ARC-001 4.1 DAO APIs / S2 keyword search
 // Fixes (M18 refine): data:Object -> typed union (R-ArkTS), history persistence completed (R-persist),
 //   AppStorage write (R0-3), EventBus flat payload + EventNames (R0-2), B00 try-catch/BusinessError
+// fix: DEV-025 · 接入 GlobalSearchService 真实 FTS5 搜索（混合方案：diary/todo 用 FTS5，其他保留 Dao）
 // Skill Ref: frontend-design / ui-ux-pro-max
 
 import { DiaryDao } from '@ohos/shared';
@@ -16,7 +17,11 @@ import { TodoItem } from '@ohos/shared';
 import { HappyThing } from '@ohos/shared';
 import { ExtraThing } from '@ohos/shared';
 import { ExtractedTask } from '@ohos/shared';
+import { FamilyMember } from '@ohos/shared';
 import { EventBus } from '@ohos/shared';
+import { GlobalSearchService } from '@ohos/shared';
+import { DatabaseHelper } from '@ohos/shared';
+import type { SearchResult as GlobalSearchResult } from '@ohos/shared';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { preferences } from '@kit.ArkData';
@@ -38,7 +43,7 @@ export enum SearchSourceType {
  * Union of all original entity types a search result may wrap.
  * Replaces `data: Object` (ArkTS strict-mode violation) with an explicit type.
  */
-export type SearchResultData = Diary | TodoItem | HappyThing | ExtraThing | ExtractedTask;
+export type SearchResultData = Diary | TodoItem | HappyThing | ExtraThing | ExtractedTask | FamilyMember;
 
 /**
  * Unified search result item.
@@ -97,7 +102,7 @@ export class SearchViewModel {
 
   /**
    * Execute a cross-source search.
-   * Queries all 4 data sources in parallel and aggregates results.
+   * DEV-025: 混合方案 - diary/todo 使用 GlobalSearchService (FTS5)，其他源保留 Dao 查询。
    *
    * @param keyword Search keyword.
    * @returns Aggregated search results marked with source types.
@@ -111,45 +116,44 @@ export class SearchViewModel {
     this.currentQuery = keyword.trim();
 
     try {
-      // Parallel queries across all 5 data sources
+      // 调试：查询 FTS5 表数据量
+      try {
+        const store = DatabaseHelper.getInstance().getStore();
+        const countSql = 'SELECT COUNT(*) as count FROM fts_search';
+        const result = await store.querySql(countSql, []);
+        if (result.goToNextRow()) {
+          const count = result.getLong(0);
+          hilog.info(0x0000, TAG, '🔍 FTS5 table has %{public}d rows', count);
+        }
+        result.close();
+      } catch (err) {
+        hilog.warn(0x0000, TAG, '🔍 FTS5 table query failed: %{public}s', (err as Error).message);
+      }
+
+      // DEV-025: 并行查询 - GlobalSearchService (FTS5: diary/todo/member) + Dao (happy/extra/extracted)
       const queryResults = await Promise.all([
-        DiaryDao.search(this.currentQuery),
-        TodoDao.searchByTitle(this.currentQuery),
+        GlobalSearchService.search(this.currentQuery),
         HappyThingDao.searchByContent(this.currentQuery),
         ExtraThingDao.searchByContent(this.currentQuery),
         ExtractedTaskDao.searchByTitle(this.currentQuery)
       ]);
-      const diaryResults = queryResults[0];
-      const todoResults = queryResults[1];
-      const happyResults = queryResults[2];
-      const extraResults = queryResults[3];
-      const extractedResults = queryResults[4];
+      const globalResults = queryResults[0];
+      const happyResults = queryResults[1];
+      const extraResults = queryResults[2];
+      const extractedResults = queryResults[3];
 
       // Aggregate results with source type marking
       const allResults: SearchResult[] = [];
 
-      for (const diary of diaryResults) {
-        allResults.push({
-          id: `diary_${diary.id}`,
-          sourceType: SearchSourceType.DIARY,
-          title: `日记 - ${diary.date}`,
-          snippet: SearchViewModel.truncate(diary.content, 80),
-          date: diary.date,
-          data: diary
-        });
+      // DEV-025: 转换 GlobalSearchService 结果 (diary/todo/member)
+      for (const item of globalResults) {
+        const converted = SearchViewModel.convertGlobalSearchResult(item);
+        if (converted) {
+          allResults.push(converted);
+        }
       }
 
-      for (const todo of todoResults) {
-        allResults.push({
-          id: `todo_${todo.id}`,
-          sourceType: SearchSourceType.TODO,
-          title: todo.title,
-          snippet: todo.completed === 1 ? '[已完成]' : '[未完成]',
-          date: todo.date,
-          data: todo
-        });
-      }
-
+      // 保留原有 Dao 查询结果 (happy/extra/extracted)
       for (const happy of happyResults) {
         allResults.push({
           id: `happy_${happy.id}`,
@@ -201,7 +205,7 @@ export class SearchViewModel {
       searchPayload['resultCount'] = allResults.length;
       EventBus.emit(EventBus.EventNames.SEARCH_EXECUTED, searchPayload);
 
-      hilog.info(0x0000, TAG, 'Search: query=%{public}s, results=%{public}d',
+      hilog.info(0x0000, TAG, 'Search (FTS5+Dao): query=%{public}s, results=%{public}d',
         this.currentQuery, allResults.length);
       return allResults;
     } catch (err) {
@@ -209,6 +213,47 @@ export class SearchViewModel {
       hilog.error(0x0000, TAG, 'Search failed: %{public}s', error.message);
       return [];
     }
+  }
+
+  /**
+   * DEV-025: 转换 GlobalSearchService.SearchResult → SearchViewModel.SearchResult
+   *
+   * @param item GlobalSearchService 返回的搜索结果
+   * @returns 转换后的 SearchViewModel.SearchResult，无法转换时返回 null
+   */
+  private static convertGlobalSearchResult(item: GlobalSearchResult): SearchResult | null {
+    if (item.type === 'diary') {
+      const diary = item.data as Diary;
+      return {
+        id: `diary_${diary.id}`,
+        sourceType: SearchSourceType.DIARY,
+        title: `日记 - ${diary.date}`,
+        snippet: SearchViewModel.truncate(diary.content, 80),
+        date: diary.date,
+        data: diary
+      };
+    } else if (item.type === 'todo') {
+      const todo = item.data as TodoItem;
+      return {
+        id: `todo_${todo.id}`,
+        sourceType: SearchSourceType.TODO,
+        title: todo.title,
+        snippet: todo.completed === 1 ? '[已完成]' : '[未完成]',
+        date: todo.date,
+        data: todo
+      };
+    } else if (item.type === 'member') {
+      const member = item.data as FamilyMember;
+      return {
+        id: `member_${member.id}`,
+        sourceType: SearchSourceType.EXTRA,
+        title: member.nickname ?? '未命名成员',
+        snippet: member.role ?? '',
+        date: member.created_at ? new Date(member.created_at).toISOString().split('T')[0] : '',
+        data: member
+      };
+    }
+    return null;
   }
 
   /**

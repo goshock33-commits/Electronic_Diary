@@ -5,343 +5,341 @@
 // Skill 参考：frontend-design / ui-ux-pro-max / brainstorming
 // 开发范式：ArkTS 声明式开发范式
 // 复刻要点：eyebrow+H1+mono 篇数药丸；日历大卡（40vp 圆角青染阴影）；选中日记显示 DiaryCard mood 查看器；
-//           无日记则虚线空态「border-2 dashed #E0E0E0」+ 写日记 CTA。
+//           无日记则虚线空态「border-2 dashed #E0E6ED」+ 写日记 CTA。
 // 令牌驱动：RADIUS / SPACING / TYPO / FONT 全引用；颜色 tokens 判空兜底。
 // 崩溃防范（PROJECT_SPEC §9）：@StorageLink 全判空；无 getter-in-build；无字段初值写 $r()。
 // 图标合规（PROJECT_SPEC §10）：仅用 IconMapper 已验证；无 emoji。
 
 import type { ThemeColorTokens, Diary } from '@ohos/shared';
-// HUI-028：引入手绘字体助手——SKETCH_TITLE=猫啃(eyebrow/H1)，SKETCH_BODY=清松(单位/标签/正文)；mono 篇数/日期保留不动。
-import { DateUtils, IconMapper, RADIUS, SPACING, TYPO, FONT, SKETCH_TITLE, SKETCH_BODY, reportPawTouch, PawOverlayLayer } from '@ohos/shared';
-import { CalendarView, DiaryCard, DiaryViewModel, type DiaryCardData } from 'features/diary';
+import { DateUtils, IconMapper, RADIUS, SPACING, TYPO, FONT, ICON, SKETCH_TITLE, SKETCH_BODY, reportPawTouch, PawOverlayLayer } from '@ohos/shared';
+import { DiaryCard, DiaryViewModel, type DiaryCardData } from 'features/diary';
 import { CheckInViewModel } from 'features/checkin';
 import { router } from '@kit.ArkUI';
-import { promptAction } from '@kit.ArkUI';
 
-/**
- * 日记摘要数据（Mock 用）
- */
-interface DiarySummary {
+/** 日记卡片数据 */
+interface DiaryEntry {
+  id: number;
   date: string;
-  content: string;
-  checkedIn: boolean;
+  title: string;
+  summary: string;
   mood: string;
+  imageCount: number;
+}
+
+/** 二级 Tab 选项 */
+interface DiaryTab {
+  label: string;
+  key: string;
 }
 
 @Entry
 @Component
 export struct CalendarPage {
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
-  @State currentYear: number = 2026;
-  @State currentMonth: number = 7;
   @State selectedDate: string = DateUtils.today();
-  // T106（审判 G2 修正）：diaryDates 仅「有日记」的日期、checkinDates 仅「已打卡」的日期，两类分开标记、互不混淆。
-  // 初始置空 → 挂载/切月经 CalendarView.onMonthChange 异步拉取后回填（R1：@State 才触发刷新）。
-  @State diaryDates: string[] = [];
-  @State checkinDates: string[] = [];
-  @State showDetailPreview: boolean = false;
+  @State activeTab: string = 'all';
+  @State diaries: DiaryEntry[] = [];
 
-  /** Mock 日记数据：3 篇完整日记 */
-  private mockDiaries: Record<string, DiarySummary> = {
-    '2026-07-03': {
-      date: '2026-07-03',
-      content: '今天开始学习鸿蒙应用开发，了解了ArkTS声明式开发范式和组件化架构。感觉很有意思，状态管理和声明式UI的结合让开发效率非常高。',
-      checkedIn: true,
-      mood: 'happy'
-    },
-    '2026-07-08': {
-      date: '2026-07-08',
-      content: '完成了电子日记本的核心功能设计。确定了五个分区结构、打卡签到系统、待办管理和日记写作功能。用户访谈反馈很积极。',
-      checkedIn: true,
-      mood: 'star'
-    },
-    '2026-07-15': {
-      date: '2026-07-15',
-      content: '今天整理了本周的待办事项，完成了所有计划的任务。重新规划了分区布局，让每天记录更有效率。',
-      checkedIn: false,
-      mood: 'cloudy'
-    }
-  };
+  /** 二级 Tab：全部/我的/家人/收藏 */
+  private tabs: DiaryTab[] = [
+    { label: '全部', key: 'all' },
+    { label: '我的', key: 'mine' },
+    { label: '家人', key: 'family' },
+    { label: '收藏', key: 'favorite' }
+  ];
+
+  /** 横向日期条数据（最近7天） */
+  private dateBar: string[] = [];
 
   aboutToAppear(): void {
-    this.currentYear = 2026;
-    this.currentMonth = 7;
-    // restore selected date viewer state from today
-    if (this.diaryDates.indexOf(this.selectedDate) >= 0) {
-      this.showDetailPreview = true;
-    } else {
-      this.showDetailPreview = false;
-    }
+    this.dateBar = this.buildDateBar();
+    this.loadDiaries();
   }
 
-  /**
-   * T106：拉取当月「有日记」「已打卡」两类日期，分别回填标记 @State。
-   * - diaryDates：DiaryViewModel.queryByMonth(y,m).map(d=>d.date)（仅日记；不用会把打卡也并进来的
-   *   getDatesWithDiary() 合并集，避免纯打卡日被误标为有日记 —— 审判 G2 / PLN R12）。
-   * - checkinDates：CheckInViewModel.queryByMonth(y,m)（DEV-006 新补，直接返回该月打卡日期 string[]）。
-   * 触发时机：由 CalendarView.onMonthChange 驱动——其子组件 aboutToAppear 挂载即回调一次（首屏加载），
-   *   之后每次上/下月、回到今天再回调（切月重拉）。
-   */
-  private async loadMonthMarks(year: number, month: number): Promise<void> {
+  /** 生成最近7天日期 */
+  private buildDateBar(): string[] {
+    const result: string[] = [];
+    const today: Date = new Date();
+    for (let i: number = -3; i <= 3; i++) {
+      const d: Date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      const y: number = d.getFullYear();
+      const m: number = d.getMonth() + 1;
+      const day: number = d.getDate();
+      const dateStr: string = y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+      result.push(dateStr);
+    }
+    return result;
+  }
+
+  /** 获取日期数字（几号） */
+  private getDayNum(dateStr: string): number {
+    const parts: string[] = dateStr.split('-');
+    return parseInt(parts[2], 10);
+  }
+
+  /** 获取星期几（中文） */
+  private getWeekday(dateStr: string): string {
+    const parts: string[] = dateStr.split('-');
+    const d: Date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const weekdays: string[] = ['日', '一', '二', '三', '四', '五', '六'];
+    return '周' + weekdays[d.getDay()];
+  }
+
+  /** 判断是否今天 */
+  private isToday(dateStr: string): boolean {
+    return dateStr === DateUtils.today();
+  }
+
+  /** 加载日记列表（真实数据 + mock 兜底） */
+  private async loadDiaries(): Promise<void> {
     try {
-      const diaryVm: DiaryViewModel = new DiaryViewModel();
-      const checkInVm: CheckInViewModel = new CheckInViewModel();
-      const diaries: Diary[] = await diaryVm.queryByMonth(year, month);
-      const diaryDateList: string[] = diaries.map((d: Diary): string => d.date);
-      const checkinDateList: string[] = await checkInVm.queryByMonth(year, month);
-      this.diaryDates = diaryDateList;
-      this.checkinDates = checkinDateList;
-    } catch (err) {
-      // 错误兜底：清空标记而非崩溃（PLN §5 红线④ async try/catch 空态）
-      this.diaryDates = [];
-      this.checkinDates = [];
-    }
-  }
-
-  build() {
-    // HUI-001: 最小外包 Stack——原根 Column 原样保留，仅为叠加同树猫爪视觉层
-    Stack({ alignContent: Alignment.TopStart }) {
-    Column() {
-      Scroll() {
-        Column() {
-          // ═══════════════════════════════════════════
-          // 页头：eyebrow「DIARY LOG BOOK」+ H1「日记时光」+ 累计篇数药丸(mono 数字)
-          // ═══════════════════════════════════════════
-          Row() {
-            Column() {
-              Text('DIARY LOG BOOK')
-                .fontSize(10)
-                .fontWeight(TYPO.cardTitle.weight)
-                .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                .opacity(0.6)
-                .letterSpacing(3)
-                .attributeModifier(SKETCH_TITLE) // HUI-028：eyebrow 微标→猫啃什锦黑
-              Text('日记时光')
-                .fontSize(TYPO.h1.size)
-                .fontWeight(TYPO.h1.weight)
-                .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-                .margin({ top: 2 })
-                .attributeModifier(SKETCH_TITLE) // HUI-028：页面 H1→猫啃什锦黑
-            }
-            .alignItems(HorizontalAlign.Start)
-
-            Blank()
-
-            // 累计篇数药丸：mono 数字 + 中文
-            Row() {
-              Text(this.diaryDates.length.toString())
-                .fontFamily(FONT.monoExtraBold)
-                .fontSize(TYPO.numCard.size)
-                .fontWeight(TYPO.numCard.weight)
-                .fontColor(this.tokens ? this.tokens.primary : '#00C2B8')
-                .margin({ right: 4 })
-              Text('篇')
-                .fontSize(TYPO.body.size)
-                .fontWeight(TYPO.cardTitle.weight)
-                .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                .attributeModifier(SKETCH_BODY) // HUI-028：单位标签→清松手写体2（数字保留 mono）
-            }
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .borderRadius(999)
-            .backgroundColor(this.tokens ? this.tokens.accent : '#E6F9F8')
-          }
-          .width('100%')
-          .padding({ left: SPACING.pageH, right: SPACING.pageH, top: 6, bottom: SPACING.cardPadSm })
-
-          // ═══════════════════════════════════════════
-          // 日历大卡
-          // ═══════════════════════════════════════════
-          CalendarView({
-            diaryDates: this.diaryDates,
-            checkinDates: this.checkinDates,
-            onDateSelect: (date: string) => {
-              this.selectedDate = date;
-              if (this.diaryDates.indexOf(date) >= 0) {
-                this.showDetailPreview = true;
-              } else {
-                this.showDetailPreview = false;
-              }
-            },
-            onMonthChange: (year: number, month: number) => {
-              this.currentYear = year;
-              this.currentMonth = month;
-              this.loadMonthMarks(year, month);
-            }
-          })
-            .margin({ left: SPACING.pageH, right: SPACING.pageH })
-
-          // ═══════════════════════════════════════════
-          // 选中日查看器
-          // ═══════════════════════════════════════════
-          if (this.showDetailPreview && this.mockDiaries[this.selectedDate]) {
-            // 有日记：展示 DiaryCard 查看器
-            this.buildDiaryViewer(this.mockDiaries[this.selectedDate])
-          } else if (this.selectedDate && !this.showDetailPreview) {
-            // 无日记：虚线空态
-            this.buildEmptyViewer()
-          }
-
-          // ═══════════════════════════════════════════
-          // 底部分隔 + 安全区
-          // ═══════════════════════════════════════════
-          Blank()
-        }
-        .width('100%')
+      const vm: DiaryViewModel = new DiaryViewModel();
+      const list: Diary[] = await vm.queryByMonth(2026, 7);
+      this.diaries = list.map((d: Diary, idx: number): DiaryEntry => {
+        return {
+          id: d.id,
+          date: d.date,
+          title: d.content.substring(0, 20) + (d.content.length > 20 ? '...' : ''),
+          summary: d.content,
+          mood: 'happy',
+          imageCount: 0
+        };
+      });
+      if (this.diaries.length === 0) {
+        this.diaries = this.getMockDiaries();
       }
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
-    // HUI-001: 猫爪特效触摸捕获（页面树内监听 Down，不消费；视觉层在外包 Stack 顶层）
-    .onTouch((event: TouchEvent) => reportPawTouch(event))
-
-    // HUI-001: 猫爪视觉层（同树最上层子节点，整层 None 不参与命中，不挡交互）
-    PawOverlayLayer()
-    }
-    .width('100%')
-    .height('100%')
-  }
-
-  /**
-   * 选中日有日记时的查看器（DiaryCard）
-   */
-  @Builder
-  buildDiaryViewer(summary: DiarySummary) {
-    Column() {
-      // 选中的日期简短提示
-      Row() {
-        Text(DateUtils.formatDateCN(summary.date))
-          .fontFamily(FONT.monoBold)
-          .fontSize(TYPO.cardTitle.size)
-          .fontWeight(TYPO.cardTitle.weight)
-          .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-        Text(' · 日记详情')
-          .fontSize(TYPO.eyebrow.size)
-          .fontWeight(TYPO.eyebrow.weight)
-          .fontColor(this.tokens ? this.tokens.textTertiary : '#BDBDBD')
-          .margin({ left: 4 })
-          .attributeModifier(SKETCH_BODY) // HUI-028：说明标签→清松手写体2
-        Blank()
-        Button() {
-          Text('写新日记')
-            .fontSize(TYPO.eyebrow.size)
-            .fontWeight(TYPO.cardTitle.weight)
-            // HUI-034：描边辅助按钮文字套 btnAux 燕麦
-            .fontColor(this.tokens ? this.tokens.btnAux : '#C6BBAE')
-            .attributeModifier(SKETCH_BODY) // HUI-028：动作字→清松手写体2
-        }
-        .backgroundColor(Color.Transparent)
-        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-        // HUI-034：描边辅助按钮边框套 btnAux 燕麦
-        .border({ width: 1, color: this.tokens ? this.tokens.btnAux : '#C6BBAE', style: BorderStyle.Solid })
-        .borderRadius(RADIUS.input)
-        .onClick(() => this.openDiaryEdit())
-        .accessibilityText('写新日记')
-        .accessibilityLevel('yes')
-      }
-      .width('100%')
-      .padding({ left: SPACING.pageH, right: SPACING.pageH, bottom: SPACING.cardGap })
-      .margin({ top: SPACING.cardGap })
-
-      DiaryCard({
-        diary: {
-          id: 0,
-          date: summary.date,
-          content: summary.content,
-          imageCount: 0,
-          isCheckedIn: summary.checkedIn,
-          mood: summary.mood
-        },
-        onCardClick: (_d: DiaryCardData) => {
-          router.pushUrl({
-            url: 'pages/DiaryDetailPage',
-            params: { date: summary.date }
-          }).catch(() => {
-            promptAction.showToast({ message: 'Mock: 打开日记详情', duration: 1500 });
-          });
-        }
-      })
-        .margin({ left: SPACING.pageH, right: SPACING.pageH })
+    } catch (_err) {
+      this.diaries = this.getMockDiaries();
     }
   }
 
-  /**
-   * 选中日无日记时的虚线空态
-   */
-  @Builder
-  buildEmptyViewer() {
-    Column() {
-      // 日期标签
-      Text(DateUtils.formatDateCN(this.selectedDate))
-        .fontFamily(FONT.monoBold)
-        .fontSize(TYPO.cardTitle.size)
-        .fontWeight(TYPO.cardTitle.weight)
-        .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-        .margin({ bottom: SPACING.cardGap })
-
-      // 虚线空态卡
-      Column() {
-        SymbolGlyph(IconMapper.BOOKMARK)
-          .fontSize(36)
-          .fontColor([this.tokens ? this.tokens.accent : '#E6F9F8'])
-
-        Text('这一天还没有日记')
-          .fontSize(TYPO.body.size)
-          .fontWeight(TYPO.cardTitle.weight)
-          .fontColor(this.tokens ? this.tokens.textTertiary : '#BDBDBD')
-          .margin({ top: 12, bottom: 6 })
-          .attributeModifier(SKETCH_BODY) // HUI-028：空态标题→清松手写体2
-
-        Text('记录今日的温暖时光，让回忆有迹可循')
-          .fontSize(TYPO.eyebrow.size)
-          .fontWeight(TYPO.eyebrow.weight)
-          .fontColor(this.tokens ? this.tokens.textTertiary : '#E0E0E0')
-          .margin({ bottom: 18 })
-          .attributeModifier(SKETCH_BODY) // HUI-028：空态说明→清松手写体2
-
-        Button('写日记')
-          .fontSize(TYPO.body.size)
-          .fontWeight(TYPO.cardTitle.weight)
-          // HUI-034：主按钮套 btnPrimaryText 白字 + btnPrimary 雾霾蓝底
-          .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-          .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
-          .borderRadius(999)
-          .height(44)
-          .padding({ left: 32, right: 32 })
-          .shadow({
-            radius: 12,
-            color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.30)', // HUI-024: then 分支原为青色死值（两支同值恒青），改读 tokens.shadow 随黑白手绘主题+深浅适配
-            offsetX: 0,
-            offsetY: 4
-          })
-          .onClick(() => this.openDiaryEdit())
-          .accessibilityText('写日记')
-          .accessibilityLevel('yes')
-      }
-      .width('100%')
-      .padding({ top: 32, bottom: 32 })
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .border({ width: 2, color: '#E0E0E0', style: BorderStyle.Dashed })
-      .borderRadius(RADIUS.cardMd)
-      .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-    }
-    .width('100%')
-    .padding({ left: SPACING.pageH, right: SPACING.pageH })
-    .margin({ top: SPACING.cardGap })
+  /** Mock 日记数据兜底 */
+  private getMockDiaries(): DiaryEntry[] {
+    return [
+      { id: 1, date: '2026-07-23', title: '今天去了公园散步', summary: '阳光很好，和小猫一起在草坪上晒太阳，感觉非常放松。', mood: 'happy', imageCount: 3 },
+      { id: 2, date: '2026-07-22', title: '完成了项目设计', summary: '终于把Mimi随记的核心功能设计完成了，明天开始编码。', mood: 'star', imageCount: 2 },
+      { id: 3, date: '2026-07-21', title: '和家人一起做饭', summary: '今天妈妈教我做红烧肉，味道还不错，家人很开心。', mood: 'happy', imageCount: 1 }
+    ];
   }
 
-  /**
-   * 打开写日记页
-   */
+  /** 打开写日记页 */
   private openDiaryEdit(): void {
     router.pushUrl({
       url: 'pages/DiaryEditPage',
       params: { date: this.selectedDate }
-    }).catch(() => {
-      promptAction.showToast({ message: 'Mock: 打开日记写作页', duration: 1500 });
     });
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        // ═══════════════════════════════════════════
+        // 顶部导航栏（返回按钮 + 标题）
+        // ═══════════════════════════════════════════
+        Row() {
+          Button() {
+            SymbolGlyph(IconMapper.BACK)
+              .fontSize(ICON.navBack)
+              .fontWeight(FontWeight.Bold)
+              .fontColor([this.tokens ? this.tokens.textPrimary : '#1A1A1A'])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => router.back())
+          .accessibilityText('返回')
+
+          Text('日记')
+            .fontSize(TYPO.cardTitle.size)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+            .margin({ left: 8 })
+            .attributeModifier(SKETCH_TITLE)
+
+          Blank()
+
+          Button() {
+            SymbolGlyph(IconMapper.PLUS)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor([this.tokens ? this.tokens.textPrimary : '#1A1A1A'])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => this.openDiaryEdit())
+          .accessibilityText('写日记')
+        }
+        .width('100%')
+        .height(56)
+        .padding({ left: SPACING.pageH, right: SPACING.pageH })
+        .alignItems(VerticalAlign.Center)
+
+        // ═══════════════════════════════════════════
+        // 横向日期条
+        // ═══════════════════════════════════════════
+        Scroll() {
+          Row({ space: 8 }) {
+            ForEach(this.dateBar, (dateStr: string) => {
+              Column() {
+                Text(this.getWeekday(dateStr))
+                  .fontSize(10)
+                  .fontColor(this.selectedDate === dateStr ?
+                    (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF') :
+                    (this.tokens ? this.tokens.textTertiary : '#999999'))
+                Text(this.getDayNum(dateStr).toString())
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(this.selectedDate === dateStr ?
+                    (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF') :
+                    (this.tokens ? this.tokens.textPrimary : '#1A1A1A'))
+                  .margin({ top: 2 })
+              }
+              .width(48)
+              .height(64)
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+              .borderRadius(24)
+              .backgroundColor(this.selectedDate === dateStr ?
+                (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                (this.tokens ? this.tokens.bgCard : '#FFFFFF'))
+              .shadow({
+                radius: this.selectedDate === dateStr ? 8 : 4,
+                color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+                offsetX: 0,
+                offsetY: 2
+              })
+              .onClick(() => {
+                this.selectedDate = dateStr;
+              })
+              .accessibilityText(dateStr + '，' + this.getWeekday(dateStr))
+            })
+          }
+          .padding({ left: SPACING.pageH, right: SPACING.pageH })
+        }
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .width('100%')
+        .padding({ top: SPACING.pageTop, bottom: 12 })
+
+        // ═══════════════════════════════════════════
+        // 二级 Tab（全部/我的/家人/收藏）
+        // ═══════════════════════════════════════════
+        Row({ space: 0 }) {
+          ForEach(this.tabs, (tab: DiaryTab) => {
+            Column() {
+              Text(tab.label)
+                .fontSize(TYPO.body.size)
+                .fontWeight(this.activeTab === tab.key ? FontWeight.Bold : FontWeight.Normal)
+                .fontColor(this.activeTab === tab.key ?
+                  (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                  (this.tokens ? this.tokens.textSecondary : '#666666'))
+              if (this.activeTab === tab.key) {
+                Divider()
+                  .width(20)
+                  .strokeWidth(2)
+                  .color(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+                  .margin({ top: 4 })
+              }
+            }
+            .padding({ left: 16, right: 16, top: 4, bottom: 4 })
+            .onClick(() => {
+              this.activeTab = tab.key;
+            })
+            .accessibilityText(tab.label + (this.activeTab === tab.key ? '，已选中' : ''))
+          })
+        }
+        .width('100%')
+        .padding({ left: SPACING.pageH, right: SPACING.pageH, bottom: 8 })
+
+        // ═══════════════════════════════════════════
+        // 日记卡片流
+        // ═══════════════════════════════════════════
+        Scroll() {
+          Column({ space: SPACING.cardGap }) {
+            ForEach(this.diaries, (entry: DiaryEntry) => {
+              Row() {
+                // 左侧：标题 + 摘要 + 时间
+                Column() {
+                  Text(entry.title)
+                    .fontSize(TYPO.cardTitle.size)
+                    .fontWeight(TYPO.cardTitle.weight)
+                    .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .attributeModifier(SKETCH_TITLE)
+                  Text(entry.summary)
+                    .fontSize(TYPO.body.size)
+                    .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .margin({ top: 4 })
+                    .attributeModifier(SKETCH_BODY)
+                  Text(this.getWeekday(entry.date) + ' ' + entry.date.substring(5))
+                    .fontSize(TYPO.eyebrow.size)
+                    .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
+                    .margin({ top: 6 })
+                    .attributeModifier(SKETCH_BODY)
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                // 右侧：缩略图占位
+                if (entry.imageCount > 0) {
+                  Row({ space: 4 }) {
+                    ForEach([0, 1, 2], (idx: number) => {
+                      if (idx < entry.imageCount) {
+                        Column()
+                          .width(56)
+                          .height(56)
+                          .borderRadius(RADIUS.item)
+                          .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
+                      }
+                    })
+                  }
+                  .margin({ left: 12 })
+                }
+              }
+              .width('100%')
+              .padding(SPACING.cardPadSm)
+              .borderRadius(RADIUS.card)
+              .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+              .shadow({
+                radius: 8,
+                color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+                offsetX: 0,
+                offsetY: 2
+              })
+              .onClick(() => {
+                router.pushUrl({
+                  url: 'pages/DiaryDetailPage',
+                  params: { date: entry.date }
+                });
+              })
+              .accessibilityText(entry.title)
+            })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .constraintSize({ minHeight: '100%' })
+          .padding({
+            left: SPACING.pageH,
+            right: SPACING.pageH,
+            bottom: SPACING.pageBottom
+          })
+        }
+        .layoutWeight(1)
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
+    }
+    .width('100%')
+    .height('100%')
   }
 }

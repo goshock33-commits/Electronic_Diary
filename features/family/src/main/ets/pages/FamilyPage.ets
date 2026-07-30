@@ -6,11 +6,12 @@
 // §1.4 三者一致：模块 name = features_family = 依赖 key = import 路径
 // 交互约定（用户偏好）：点击成员行即编辑昵称（点击即编辑，无独立编辑按钮）
 // 令牌：IconMapper / RADIUS / SPACING / TYPO —— 全引用，禁散写魔数
-// T707(DEV-011): aliases 显示逻辑 —— 成员列表显示名 = myAliases[member.uid] ?? member.nickname；自己看自己的 nickname
+// 主题：HarmonyOS 蓝白卡片风格（primary=#0A59F7, bg=#F5F7FA, bgCard=#FFFFFF, accent=#EBF5FF）
+// T707(DEV-011): aliases 显示逻辑 —— 成员列表显示名 = myAliases[member.uid] ?? member.nickname
 //
 // === 崩溃防范（PROJECT_SPEC §9）===
 //   §9.1 无 getter-in-build
-//   §9.4 @StorageLink tokens 读取全部判空兜底（黑白手绘风格中性兜底，无青色死值）
+//   §9.4 @StorageLink tokens 读取全部判空兜底
 //
 // === 图标来源章节 ===
 // | 图标资源                | 用途       | 验证来源                       |
@@ -22,12 +23,14 @@
 
 import type { ThemeColorTokens } from '@ohos/shared';
 import { IconMapper, RADIUS, SPACING, TYPO, SKETCH_TITLE, SKETCH_BODY, ClipboardUtils } from '@ohos/shared';
-// HUI-LOGIN：未登录点击任意功能入口 → router 直跳 pages/LoginPage（entry main_pages.json 已注册）
 import { promptAction, router } from '@kit.ArkUI';
 import type { FamilyMember } from '@ohos/shared';
 import { FamilyViewModel } from '../viewmodel/FamilyViewModel';
 import { MemberNicknameModal } from '../components/MemberNicknameModal';
 import { InviteCodeModal } from '../components/InviteCodeModal';
+
+/** 状态标签浅绿底色（tokens.success #52C41A 的浅色背景） */
+const STATUS_GREEN_BG: string = '#E8F5E9';
 
 @Component
 export struct FamilyPage {
@@ -66,53 +69,44 @@ export struct FamilyPage {
       Column() {
         Scroll() {
           Column() {
-            // ── 成员列表卡片 ──
-            Column() {
-              this.buildCardTitle('FAMILY MEMBERS', '成员列表')
+            // ── 分组标题 ──
+            this.buildCardTitle('FAMILY MEMBERS', '成员列表')
 
-              if (this.members.length === 0) {
-                // 空态：引导添加
-                Column() {
-                  SymbolGlyph(IconMapper.NAV_PROFILE)
-                    .fontSize(36)
-                    .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
-                    .margin({ bottom: 10 })
-                  Text('还没有家庭成员')
-                    .fontSize(TYPO.body.size)
-                    .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                    .attributeModifier(SKETCH_BODY)
-                  Text('点击下方按钮添加第一位家人')
-                    .fontSize(TYPO.eyebrow.size)
-                    .fontColor(this.tokens ? this.tokens.textTertiary : '#8A8A8A')
-                    .margin({ top: 4 })
-                    .attributeModifier(SKETCH_BODY)
-                }
-                .width('100%')
-                .padding({ top: 28, bottom: 28 })
-                .accessibilityText('还没有家庭成员，点击下方按钮添加第一位家人')
-              } else {
-                ForEach(this.members, (member: FamilyMember, index: number) => {
-                  if (index > 0) {
-                    Divider()
-                      .strokeWidth(0.5)
-                      .color(this.tokens ? this.tokens.divider : '#E0E0E0')
-                  }
-                  this.buildMemberRow(member)
-                }, (member: FamilyMember) => member.id + '_' + member.nickname)
+            // ── 成员列表（每成员独立白卡） ──
+            if (this.members.length === 0) {
+              // 空态：引导添加
+              Column() {
+                SymbolGlyph(IconMapper.NAV_PROFILE)
+                  .fontSize(36)
+                  .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+                  .margin({ bottom: 10 })
+                Text('还没有家庭成员')
+                  .fontSize(TYPO.body.size)
+                  .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+                  .attributeModifier(SKETCH_BODY)
+                Text('点击下方按钮添加第一位家人')
+                  .fontSize(TYPO.eyebrow.size)
+                  .fontColor(this.tokens ? this.tokens.textTertiary : '#8A8A8A')
+                  .margin({ top: 4 })
+                  .attributeModifier(SKETCH_BODY)
               }
+              .width('100%')
+              .padding({ top: 28, bottom: 28 })
+              .borderRadius(RADIUS.card)
+              .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+              .alignItems(HorizontalAlign.Center)
+              .accessibilityText('还没有家庭成员，点击下方按钮添加第一位家人')
+            } else {
+              ForEach(this.members, (member: FamilyMember, index: number) => {
+                this.buildMemberCard(member)
+                if (index < this.members.length - 1) {
+                  Blank().height(SPACING.cardGap)
+                }
+              }, (member: FamilyMember) => member.id + '_' + member.nickname)
             }
-            .width('100%')
-            .borderRadius(RADIUS.cardLg)
-            .padding(SPACING.cardPadMd)
-            .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-            .border({ width: 1, color: this.tokens ? this.tokens.border : '#CCCCCC' })
-            .shadow({
-              radius: 12,
-              color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
-              offsetX: 0,
-              offsetY: 4
-            })
-            .alignItems(HorizontalAlign.Start)
+
+            // ── 添加成员区域（accent 浅蓝底） ──
+            this.buildAddMemberArea()
 
             // ── HUI-058：未登录提示 ──
             if (!this.isLoggedIn) {
@@ -125,41 +119,7 @@ export struct FamilyPage {
                 .attributeModifier(SKETCH_BODY)
             }
 
-            // ── 添加成员按钮 ──
-            Button() {
-              Row() {
-                SymbolGlyph(IconMapper.PLUS)
-                  .fontSize(18)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor([this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF'])
-                  .margin({ right: 8 })
-                Text('加入家庭')
-                  .fontSize(TYPO.body.size)
-                  .fontWeight(600)
-                  .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-                  .attributeModifier(SKETCH_BODY)
-              }
-              .alignItems(VerticalAlign.Center)
-              .justifyContent(FlexAlign.Center)
-            }
-            .width('100%')
-            .height(48)
-            .borderRadius(RADIUS.item)
-            .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
-            .margin({ top: this.isLoggedIn ? SPACING.sectionGap : 0 })
-            .opacity(this.isLoggedIn ? 1.0 : 0.4)
-            .onClick(() => {
-              // HUI-LOGIN：未登录点击直接跳转登录页（原 .enabled 禁点已移除）
-              if (!this.ensureLoggedIn()) {
-                this.gotoLogin();
-                return;
-              }
-              this.showInviteModal = true;
-            })
-            .accessibilityText('通过邀请码加入家庭')
-
             // ── 家庭邀请码卡片（生成/展示复制/输码加入三态）──
-            // HUI-058：未登录时整卡半透明置灰
             Column() {
               // HUI-058：未登录提示
               if (!this.isLoggedIn) {
@@ -175,20 +135,19 @@ export struct FamilyPage {
               this.buildInviteSection()
             }
             .width('100%')
-            .borderRadius(RADIUS.cardLg)
+            .borderRadius(RADIUS.card)
             .padding(SPACING.cardPadMd)
             .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
-            .border({ width: 1, color: this.tokens ? this.tokens.border : '#CCCCCC' })
+            .border({ width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
             .shadow({
               radius: 12,
-              color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+              color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.06)',
               offsetX: 0,
               offsetY: 4
             })
             .alignItems(HorizontalAlign.Start)
             .margin({ top: SPACING.sectionGap })
             .opacity(this.isLoggedIn ? 1.0 : 0.5)
-            // HUI-LOGIN：未登录不再 HitTestMode.None 屏蔽点击 —— 整卡可点，点击跳转登录页（卡内按钮各自守卫）
             .onClick(() => {
               if (!this.ensureLoggedIn()) {
                 this.gotoLogin();
@@ -207,7 +166,6 @@ export struct FamilyPage {
       .height('100%')
 
       // ── 昵称编辑弹窗（添加 / 编辑两用，条件渲染保证每次打开重建回显） ──
-      // T707: 自己改昵称 vs 给他人设备注，标题/提示区分
       if (this.showNicknameModal) {
         MemberNicknameModal({
           titleText: this.editingId === -1 ? '添加成员' : (this.editingIsSelf ? '编辑昵称' : '编辑备注'),
@@ -239,14 +197,14 @@ export struct FamilyPage {
     .height('100%')
   }
 
-  // ── 分组标题（复刻 settings buildCardTitle 风格） ──
+  // ── 分组标题 ──
   @Builder
   buildCardTitle(en: string, cn: string) {
     Column() {
       Text(en)
         .fontSize(9)
         .fontWeight(800)
-        .fontColor(this.tokens ? this.tokens.primary : '#000000')
+        .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
         .opacity(0.7)
         .letterSpacing(2)
         .attributeModifier(SKETCH_TITLE)
@@ -263,24 +221,24 @@ export struct FamilyPage {
     .accessibilityText(cn)
   }
 
-  // ── 成员行：头像圆 + 显示名（T707: 自己看自己的 nickname，别人看 alias ?? nickname） + 编辑提示 + 箭头 ──
+  // ── 成员卡片：独立白卡（头像圆 + 显示名 + 角色 + 状态标签） ──
   @Builder
-  buildMemberRow(member: FamilyMember) {
+  buildMemberCard(member: FamilyMember) {
     // T707: 显示名逻辑 —— 自己看自己的 nickname；看别人时优先取我对他的备注
     Row() {
-      // 40vp 头像圆（surface 底 + 铅笔灰描边 + person 图标）
+      // 48vp 头像圆（accent 浅蓝底 + person 图标）
       Stack() {
         SymbolGlyph(IconMapper.NAV_PROFILE)
-          .fontSize(20)
-          .fontColor([this.tokens ? this.tokens.textPrimary : '#1A1A1A'])
+          .fontSize(24)
+          .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
       }
-      .width(40)
-      .height(40)
-      .borderRadius(20)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#F7F7F7')
-      .border({ width: 1, color: this.tokens ? this.tokens.border : '#CCCCCC' })
+      .width(48)
+      .height(48)
+      .borderRadius(24)
+      .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
       .margin({ right: 12 })
 
+      // 中间：显示名 + 角色
       Column() {
         Text(member.isSelf() ? member.nickname : this.getDisplayName(member))
           .fontSize(TYPO.cardTitle.size)
@@ -289,26 +247,77 @@ export struct FamilyPage {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .attributeModifier(SKETCH_BODY)
-        Text(member.isSelf() ? '点击编辑昵称' : '点击编辑备注')
+        Text('家庭成员')
           .fontSize(TYPO.eyebrow.size)
           .fontColor(this.tokens ? this.tokens.textTertiary : '#8A8A8A')
-          .opacity(0.8)
           .margin({ top: 2 })
           .attributeModifier(SKETCH_BODY)
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      SymbolGlyph(IconMapper.FORWARD)
-        .fontSize(14)
-        .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+      // 右侧：状态标签（浅绿底 + 绿字「手表已连接」）
+      Row() {
+        Text('手表已连接')
+          .fontSize(TYPO.eyebrow.size)
+          .fontWeight(500)
+          .fontColor(this.tokens ? this.tokens.success : '#52C41A')
+          .attributeModifier(SKETCH_BODY)
+      }
+      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+      .borderRadius(RADIUS.input)
+      .backgroundColor(STATUS_GREEN_BG)
     }
     .width('100%')
-    .height(56)
+    .height(64)
+    .padding({ left: SPACING.cardPadSm, right: SPACING.cardPadSm })
+    .borderRadius(RADIUS.card)
+    .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+    .border({ width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
+    .shadow({
+      radius: 12,
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.06)',
+      offsetX: 0,
+      offsetY: 4
+    })
+    .alignItems(VerticalAlign.Center)
     .onClick(() => {
       this.openEditModal(member);
     })
     .accessibilityText('家庭成员：' + (member.isSelf() ? member.nickname : this.getDisplayName(member)) + (member.isSelf() ? '，点击编辑昵称' : '，点击编辑备注'))
+  }
+
+  // ── 添加成员区域（accent 浅蓝底 + 加号 + 文案） ──
+  @Builder
+  buildAddMemberArea() {
+    Row() {
+      SymbolGlyph(IconMapper.PLUS)
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
+        .margin({ right: 8 })
+      Text('添加家庭成员')
+        .fontSize(TYPO.body.size)
+        .fontWeight(600)
+        .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
+        .attributeModifier(SKETCH_BODY)
+    }
+    .width('100%')
+    .height(48)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(RADIUS.card)
+    .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
+    .margin({ top: SPACING.sectionGap })
+    .opacity(this.isLoggedIn ? 1.0 : 0.5)
+    .onClick(() => {
+      if (!this.ensureLoggedIn()) {
+        this.gotoLogin();
+        return;
+      }
+      this.showInviteModal = true;
+    })
+    .accessibilityText('添加家庭成员')
   }
 
   /**
@@ -342,14 +351,13 @@ export struct FamilyPage {
           .textAlign(TextAlign.Center)
           .padding({ top: 14, bottom: 14 })
           .borderRadius(RADIUS.item)
-          .backgroundColor(this.tokens ? this.tokens.surface : '#F7F7F7')
+          .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : '#CCCCCC',
+            color: this.tokens ? this.tokens.border : '#E0E6ED',
             style: BorderStyle.Dashed
           })
           .onClick(() => {
-            // HUI-LOGIN：未登录点击跳转登录页
             if (!this.ensureLoggedIn()) {
               this.gotoLogin();
               return;
@@ -382,10 +390,9 @@ export struct FamilyPage {
         .width('100%')
         .height(48)
         .borderRadius(RADIUS.item)
-        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
         .margin({ top: 12 })
         .onClick(() => {
-          // HUI-LOGIN：未登录点击跳转登录页
           if (!this.ensureLoggedIn()) {
             this.gotoLogin();
             return;
@@ -427,12 +434,11 @@ export struct FamilyPage {
             .fontSize(TYPO.body.size)
             .fontWeight(600)
             .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-            .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+            .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
             .layoutWeight(1)
             .height(48)
             .borderRadius(RADIUS.item)
             .onClick(() => {
-              // HUI-LOGIN：未登录点击直接跳转登录页
               if (!this.ensureLoggedIn()) {
                 this.gotoLogin();
                 return;
@@ -446,13 +452,12 @@ export struct FamilyPage {
             .fontWeight(500)
             .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
             .backgroundColor(this.tokens ? this.tokens.surface : '#F7F7F7')
-            .border({ width: 1, color: this.tokens ? this.tokens.border : '#CCCCCC' })
+            .border({ width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
             .layoutWeight(1)
             .height(48)
             .borderRadius(RADIUS.item)
             .margin({ left: 12 })
             .onClick(() => {
-              // HUI-LOGIN：未登录点击直接跳转登录页
               if (!this.ensureLoggedIn()) {
                 this.gotoLogin();
                 return;
@@ -483,7 +488,6 @@ export struct FamilyPage {
     if (member.isSelf()) {
       this.editingName = member.nickname;
     } else {
-      // 他人：优先回显我对他的备注
       const uid: string | null = member.uid;
       if (uid !== null) {
         const aliasVal: string = this.myAliases[uid];
@@ -501,29 +505,23 @@ export struct FamilyPage {
       // 添加新成员
       await FamilyViewModel.addMember(name);
     } else {
-      // T707: 判断是编辑自己还是给他人设备注
       const targetMember = this.findMemberById(this.editingId);
       if (targetMember !== null && targetMember.isSelf()) {
-        // 自己 → 改昵称
         await FamilyViewModel.updateNickname(this.editingId, name);
       } else if (targetMember !== null && targetMember.uid !== null) {
-        // 他人 → 设备注（更新我自己的 aliases）
         await FamilyViewModel.setAlias(targetMember.uid, name);
       } else {
-        // 兜底：无 uid 的本地成员仍走 updateNickname
         await FamilyViewModel.updateNickname(this.editingId, name);
       }
     }
-    // 刷新列表 + aliases（setAlias 只改我自己的记录，不需全量云端同步）
     this.myAliases = await FamilyViewModel.getMyAliases();
     if (this.editingId === -1) {
-      // 新增成员才需要重新拉列表
       this.members = await FamilyViewModel.getMembers();
     }
     this.showNicknameModal = false;
   }
 
-  /** 按 id 查找成员（用于判断 self/非 self，路由 setAlias vs updateNickname） */
+  /** 按 id 查找成员 */
   private findMemberById(id: number): FamilyMember | null {
     for (let i = 0; i < this.members.length; i++) {
       if (this.members[i].id === id) {
@@ -533,13 +531,13 @@ export struct FamilyPage {
     return null;
   }
 
-  /** 生成本家庭邀请码（VM 幂等；生成后刷新展示） */
+  /** 生成本家庭邀请码 */
   private async generateInviteCode(): Promise<void> {
     this.myInviteCode = await FamilyViewModel.generateInviteCode();
     promptAction.showToast({ message: '邀请码已生成，分享给家人吧', duration: 1500 });
   }
 
-  /** 复制邀请码到剪贴板（成败均 Toast 反馈） */
+  /** 复制邀请码到剪贴板 */
   private copyInviteCode(): void {
     if (this.myInviteCode.length === 0) {
       return;
@@ -552,13 +550,12 @@ export struct FamilyPage {
     });
   }
 
-  /** 弹窗确认：通过邀请码加入家庭（VM 校验；失败 Toast 原因） */
+  /** 弹窗确认：通过邀请码加入家庭 */
   private async applyJoinFamily(code: string): Promise<void> {
     const err: string = await FamilyViewModel.joinFamily(code);
     if (err.length === 0) {
       this.joinedInviteCode = FamilyViewModel.getJoinedInviteCode();
       this.showInviteModal = false;
-      // 接着弹昵称弹窗，创建家庭成员记录
       this.openAddModal();
     } else {
       promptAction.showToast({ message: err, duration: 2000 });
@@ -566,12 +563,12 @@ export struct FamilyPage {
     }
   }
 
-  /** HUI-LOGIN：读取登录态（HUI-049：@StorageProp('account_logged_in') 响应式订阅，登录/注册后自动同步，无需重查） */
+  /** HUI-LOGIN：读取登录态 */
   private ensureLoggedIn(): boolean {
     return this.isLoggedIn;
   }
 
-  /** HUI-LOGIN：跳转账号登录页（entry main_pages.json 已注册 pages/LoginPage） */
+  /** HUI-LOGIN：跳转账号登录页 */
   private gotoLogin(): void {
     router.pushUrl({ url: 'pages/LoginPage' }).catch(() => {
     });

@@ -10,7 +10,7 @@
 
 /**
  * 圆角令牌类型（单位 vp / number）
- * 依 UX-001 §1.3：超大圆角 bento 是「不单调」的第二大功臣。
+ * 依 UX-001 §1.3：适中圆角卡片风格，干净利落。
  */
 export interface RadiusTokens {
   /** 大卡：签到/日历/弹窗/资料 ≈2.5rem */
@@ -30,11 +30,11 @@ export interface RadiusTokens {
  * pill / 头像 / 全圆按钮请直接用「高度/2」或大数（如 999），本表不含。
  */
 export const RADIUS: RadiusTokens = {
-  cardLg: 40,
-  card: 32,
-  cardMd: 24,
-  item: 16,
-  input: 12
+  cardLg: 20,
+  card: 16,
+  cardMd: 12,
+  item: 10,
+  input: 8
 };
 
 /**

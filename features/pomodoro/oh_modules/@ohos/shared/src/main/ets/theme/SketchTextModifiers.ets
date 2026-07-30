@@ -33,17 +33,17 @@ import { TYPO } from './TypographyTokens';
 
 // ════════════════════════════════════════════════════════════════════
 // 一、基础字体族 modifier（只换字体族，不动字号/字重）
-//     适用：页面已用 .fontSize(TYPO.x.size)/.fontWeight(TYPO.x.weight)，只想补字体。
+//     现已统一为 HarmonyOS Sans 标准无衬线字体。
 // ════════════════════════════════════════════════════════════════════
 
-/** 手绘标题字体族（猫啃什锦黑）——仅设 fontFamily=FONT.sketchTitle。 */
+/** 标题字体族（HarmonyOS Sans）——仅设 fontFamily。 */
 export class SketchTitleModifier implements AttributeModifier<TextAttribute> {
   applyNormalAttribute(instance: TextAttribute): void {
     instance.fontFamily(FONT.sketchTitle);
   }
 }
 
-/** 手绘正文字体族（清松手写体2）——仅设 fontFamily=FONT.sketchBody。 */
+/** 正文字体族（HarmonyOS Sans）——仅设 fontFamily。 */
 export class SketchBodyModifier implements AttributeModifier<TextAttribute> {
   applyNormalAttribute(instance: TextAttribute): void {
     instance.fontFamily(FONT.sketchBody);

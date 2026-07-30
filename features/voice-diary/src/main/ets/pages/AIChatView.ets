@@ -69,15 +69,11 @@ export struct AIChatView {
   @State isTyping: boolean = false;
   private typingTimer: number = -1;
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
-  // HUI-001：深色感知（用户气泡红褐色深浅两档切换；ThemeManager 维护 AppStorage['theme_is_dark']，单向只读，缺省 false 安全兜底）
-  @StorageProp('theme_is_dark') isDark: boolean = false;
   // HUI-001：导航栏猫长按语音信号（FloatingTabBar 写 AppStorage → 触发 startVoiceInput / stopVoiceInput）
   @StorageProp('ai_voice_trigger') @Watch('onAiVoiceTrigger') aiVoiceTrigger: number = 0;
   @StorageProp('ai_voice_stop') @Watch('onAiVoiceStop') aiVoiceStop: number = 0;
 
-  // 气泡圆角（1.4rem≈22vp，单角收窄到 8vp 形成指向头像的小尖角；非 RADIUS 令牌，命名常量避免魔数散落）
-  private readonly BUBBLE_RADIUS: number = 22;
-  private readonly BUBBLE_TAIL: number = 8;
+  // 气泡圆角：统一使用 RADIUS.cardMd（12vp），干净利落的蓝白卡片风格
   // T204：会话实例（aboutToAppear 创建，aboutToDisappear cancel+detach【M5】）
   private session: AIChatSession | null = null;
 
@@ -180,11 +176,11 @@ export struct AIChatView {
 
   // ==== 主题色兜底（普通方法，非 getter；@StorageLink 判空）====
   private getBg(): string {
-    return this.tokens ? this.tokens.bg : '#FAF8F5';
+    return this.tokens ? this.tokens.bg : '#F5F7FA';
   }
 
   private getPrimary(): string {
-    return this.tokens ? this.tokens.primary : '#00C2B8';
+    return this.tokens ? this.tokens.primary : '#0A59F7';
   }
 
   private getCardBg(): string {
@@ -196,20 +192,28 @@ export struct AIChatView {
   }
 
   private getTextSecondary(): string {
-    return this.tokens ? this.tokens.textSecondary : '#5A5A5A';
+    return this.tokens ? this.tokens.textSecondary : '#666666';
   }
 
   private getSurface(): string {
-    return this.tokens ? this.tokens.surface : '#F2F2F0';
+    return this.tokens ? this.tokens.surface : '#F0F4F8';
   }
 
-  // HUI-035：交互色专用 token（雾霾蓝主按钮 / 燕麦辅助 / 白按钮文字）
+  private getBorder(): string {
+    return this.tokens ? this.tokens.border : '#E0E6ED';
+  }
+
+  private getAccent(): string {
+    return this.tokens ? this.tokens.accent : '#EBF5FF';
+  }
+
+  // HUI-035：交互色专用 token（HarmonyOS 蓝主按钮 / 浅灰辅助 / 白按钮文字）
   private getBtnPrimary(): string {
-    return this.tokens ? this.tokens.btnPrimary : '#738A9C';
+    return this.tokens ? this.tokens.btnPrimary : '#0A59F7';
   }
 
   private getBtnAux(): string {
-    return this.tokens ? this.tokens.btnAux : '#C6BBAE';
+    return this.tokens ? this.tokens.btnAux : '#E0E6ED';
   }
 
   private getBtnPrimaryText(): string {
@@ -217,12 +221,7 @@ export struct AIChatView {
   }
 
   private getShadow(): string {
-    return this.tokens ? this.tokens.shadow : '#1A00C2B8';
-  }
-
-  // HUI-001：用户气泡复古红褐（旧书脊/印章色）——浅色 #96473A（白卡上 6.4:1），深色提亮 #C9826B（#1C1C1C 卡上 5.6:1，均 ≥4.5:1）
-  private getUserBrown(): string {
-    return this.isDark ? '#C9826B' : '#96473A';
+    return this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)';
   }
 
   /** 半透明版本：ArkUI hex-alpha 为 #AARRGGBB，需前置 alpha */
@@ -663,13 +662,8 @@ export struct AIChatView {
       }
       .alignItems(VerticalAlign.Center)
       .backgroundColor(this.getCardBg())
-      .border({ width: 1.5, color: this.withAlpha(this.getTextSecondary(), '33') })
-      .borderRadius({
-        topLeft: this.BUBBLE_TAIL,
-        topRight: this.BUBBLE_RADIUS,
-        bottomLeft: this.BUBBLE_RADIUS,
-        bottomRight: this.BUBBLE_RADIUS
-      })
+      .border({ width: 1, color: this.getBorder() })
+      .borderRadius(RADIUS.cardMd)
       .padding({ left: 14, right: 14, top: 10, bottom: 10 })
       .margin({ left: 8 })
     }
@@ -679,28 +673,20 @@ export struct AIChatView {
     .accessibilityText('Mimi 正在思考')
   }
 
-  // ==== 单条气泡（AI 左对齐圆角边框 / 用户右对齐圆角边框，宽高随文字自适应）====
+  // ==== 单条气泡（AI 左对齐白底黑字 / 用户右对齐蓝底白字，宽高随文字自适应）====
   @Builder
   Bubble(msg: ChatMessage) {
     Row() {
       Text(msg.text)
         .fontSize(TYPO.body.size)
         .fontWeight(TYPO.body.weight)
-        .fontColor(msg.role === 'ai' ? this.getTextPrimary() : this.getUserBrown())
+        .fontColor(msg.role === 'ai' ? this.getTextPrimary() : this.getBtnPrimaryText())
         .lineHeight(TYPO.body.size + 8)
         .attributeModifier(SKETCH_BODY)
         .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-        .borderRadius({
-          topLeft: msg.role === 'ai' ? this.BUBBLE_TAIL : this.BUBBLE_RADIUS,
-          topRight: msg.role === 'ai' ? this.BUBBLE_RADIUS : this.BUBBLE_TAIL,
-          bottomLeft: this.BUBBLE_RADIUS,
-          bottomRight: this.BUBBLE_RADIUS
-        })
-        .border({
-          width: 1.5,
-          color: msg.role === 'ai' ? this.withAlpha(this.getPrimary(), '59') : this.getUserBrown()
-        })
-        .backgroundColor(this.getCardBg())
+        .borderRadius(RADIUS.cardMd)
+        .backgroundColor(msg.role === 'ai' ? this.getCardBg() : this.getBtnPrimary())
+        .border({ width: msg.role === 'ai' ? 1 : 0, color: this.getBorder() })
         .constraintSize({ maxWidth: '74%' })
     }
     .width('100%')
@@ -713,7 +699,7 @@ export struct AIChatView {
     .accessibilityText((msg.role === 'ai' ? 'Mimi：' : '我：') + msg.text)
   }
 
-  // ==== T302：流式打字机气泡（圆角边框，末尾闪烁光标）====
+  // ==== T302：流式打字机气泡（白底黑字 + 统一圆角，末尾闪烁光标）====
   @Builder
   StreamingBubble() {
     Row() {
@@ -724,13 +710,8 @@ export struct AIChatView {
         .lineHeight(TYPO.body.size + 8)
         .attributeModifier(SKETCH_BODY)
         .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-        .borderRadius({
-          topLeft: this.BUBBLE_TAIL,
-          topRight: this.BUBBLE_RADIUS,
-          bottomLeft: this.BUBBLE_RADIUS,
-          bottomRight: this.BUBBLE_RADIUS
-        })
-        .border({ width: 1.5, color: this.withAlpha(this.getPrimary(), '59') })
+        .borderRadius(RADIUS.cardMd)
+        .border({ width: 1, color: this.getBorder() })
         .backgroundColor(this.getCardBg())
         .constraintSize({ maxWidth: '74%' })
     }
@@ -744,10 +725,10 @@ export struct AIChatView {
   ChipsBar() {
     Scroll() {
       Row({ space: 10 }) {
-        this.ChipButton('帮我写日记', $r('sys.symbol.book_open_fill'))
+        this.ChipButton('写日记', $r('sys.symbol.book_open_fill'))
         this.ChipButton('总结今日', $r('sys.symbol.doc_text'))
-        this.ChipButton('开心的事有哪些', $r('sys.symbol.star_fill'))
-        this.ChipButton('提取聊天任务', $r('sys.symbol.ellipsis_bubble'))
+        this.ChipButton('开心的事', $r('sys.symbol.star_fill'))
+        this.ChipButton('提取任务', $r('sys.symbol.ellipsis_bubble'))
       }
       .padding({ left: SPACING.pageH, right: SPACING.pageH })
     }
@@ -767,22 +748,21 @@ export struct AIChatView {
       Text(label)
         .fontSize(TYPO.eyebrow.size)
         .fontWeight(TYPO.cardTitle.weight)
-        .fontColor(this.getTextPrimary())
+        .fontColor(this.getPrimary())
         .margin({ left: 6 })
         .maxLines(1)
         .attributeModifier(SKETCH_BODY) // HUI-028：快捷提问 chip 标签→清松手写体2
     }
     .height(36)
     .padding({ left: 14, right: 14 })
-    .borderRadius(RADIUS.input)
-    .backgroundColor(this.getCardBg())
-    .border({ width: 1, color: this.withAlpha(this.getBtnAux(), '33') })
+    .borderRadius(18) // pill 形状（高度/2）
+    .backgroundColor(this.getAccent())
     .alignItems(VerticalAlign.Center)
     .onClick(() => { this.onChip(label); })
     .accessibilityText('快捷提问：' + label)
   }
 
-  // ==== 底部输入栏：胶囊输入 + 青色发送按钮 ====
+  // ==== 底部输入栏：胶囊输入 + 蓝色发送按钮 ====
   @Builder
   InputBar() {
     Row() {
@@ -790,8 +770,8 @@ export struct AIChatView {
         .layoutWeight(1)
         .height(48)
         .borderRadius(24)
-        .backgroundColor(this.getCardBg())
-        .border({ width: 1, color: this.withAlpha(this.getPrimary(), '33') })
+        .backgroundColor(this.getSurface())
+        .border({ width: 1, color: this.getBorder() })
         .padding({ left: 16, right: 16 })
         .fontSize(TYPO.body.size)
         .fontColor(this.getTextPrimary())
@@ -818,7 +798,7 @@ export struct AIChatView {
       }
       .width(48).height(48)
       .borderRadius(24)
-      .backgroundColor(this.getBtnPrimary()) // HUI-035：发送主按钮→雾霾蓝 btnPrimary
+      .backgroundColor(this.getBtnPrimary()) // HUI-035：发送主按钮→HarmonyOS 蓝 btnPrimary
       .margin({ left: 10 })
       .shadow({ radius: 8, color: this.withAlpha(this.getBtnPrimary(), '4D'), offsetX: 0, offsetY: 3 })
       // T204：busy 期间禁用发送并降透明（可见反馈；pushExchange 内另有挡板兜 onSubmit/chip）

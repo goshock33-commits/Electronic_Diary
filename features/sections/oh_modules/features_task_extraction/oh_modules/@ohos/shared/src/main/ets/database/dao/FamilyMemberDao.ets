@@ -5,6 +5,7 @@
 // 范式对齐: QuoteDao（DatabaseExecutor.executeRead/executeWrite + 静态方法 + rowTo 私有映射）
 // 表结构见 DatabaseHelper.DDL_CREATE_FAMILY_MEMBER（v4→v5 迁移新增）
 // T707: 新增 findByUid —— 按 uid 查成员，用于 addMember 去重（uid 匹配则 update 而非 insert）
+// fix: DEV-006 · T013 insert/update/rowToMember 补 avatar/gender/birthday（读列 isColumnNull 兜底老数据）
 
 import { relationalStore } from '@kit.ArkData';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -31,7 +32,11 @@ export class FamilyMemberDao {
           'push_token': member.push_token,
           'family_id': member.family_id,
           'is_self': member.is_self,
-          'created_at': member.created_at
+          'created_at': member.created_at,
+          // fix: DEV-006 · T013 成员资料列（可空，ValueType 含 null —— @ohos.data.relationalStore.d.ts:201）
+          'avatar': member.avatar,
+          'gender': member.gender,
+          'birthday': member.birthday
         };
         const rowId = await store.insert(TABLE, valueBucket);
         hilog.info(0x0000, TAG, 'insert: rowId=%{public}d nickname=%{public}s', rowId, member.nickname);
@@ -54,7 +59,11 @@ export class FamilyMemberDao {
           'phone': member.phone,
           'push_token': member.push_token,
           'family_id': member.family_id,
-          'is_self': member.is_self
+          'is_self': member.is_self,
+          // fix: DEV-006 · T013 成员资料列（全量 update 口径，null 会真正写回 NULL —— 清空资料靠此生效）
+          'avatar': member.avatar,
+          'gender': member.gender,
+          'birthday': member.birthday
         };
         const predicates = new relationalStore.RdbPredicates(TABLE);
         predicates.equalTo('id', member.id);
@@ -127,6 +136,27 @@ export class FamilyMemberDao {
   }
 
   /**
+   * DEV-020: 按 id 查询成员（for GlobalSearchService FTS5 result mapping）。
+   * @param id 成员 ID
+   * @returns Promise<FamilyMember | null> 未找到返回 null
+   */
+  static async queryById(id: number): Promise<FamilyMember | null> {
+    return DatabaseExecutor.executeRead<FamilyMember | null>('FamilyMemberDao.queryById',
+      async (store: relationalStore.RdbStore): Promise<FamilyMember | null> => {
+        const predicates = new relationalStore.RdbPredicates(TABLE);
+        predicates.equalTo('id', id);
+        const resultSet = await store.query(predicates);
+        if (resultSet.goToFirstRow()) {
+          const member = FamilyMemberDao.rowToMember(resultSet);
+          resultSet.close();
+          return member;
+        }
+        resultSet.close();
+        return null;
+      });
+  }
+
+  /**
    * T707: 按 uid 精确查找成员（uid 为 null 时直接返回 null）。
    * 用于 addMember 去重 —— uid 匹配则 update 而非 insert。
    * @returns Promise<FamilyMember | null> 未找到返回 null
@@ -166,6 +196,13 @@ export class FamilyMemberDao {
       ? null : resultSet.getString(resultSet.getColumnIndex('family_id'));
     member.is_self = resultSet.getLong(resultSet.getColumnIndex('is_self'));
     member.created_at = resultSet.getLong(resultSet.getColumnIndex('created_at'));
+    // fix: DEV-006 · T013 成员资料列 —— 自愈补列对老数据恒为 NULL，必须 isColumnNull 兜底（沿用 phone/push_token 范式）
+    member.avatar = resultSet.isColumnNull(resultSet.getColumnIndex('avatar'))
+      ? null : resultSet.getString(resultSet.getColumnIndex('avatar'));
+    member.gender = resultSet.isColumnNull(resultSet.getColumnIndex('gender'))
+      ? null : resultSet.getString(resultSet.getColumnIndex('gender'));
+    member.birthday = resultSet.isColumnNull(resultSet.getColumnIndex('birthday'))
+      ? null : resultSet.getString(resultSet.getColumnIndex('birthday'));
     return member;
   }
 }

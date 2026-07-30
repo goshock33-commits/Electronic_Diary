@@ -111,8 +111,8 @@ export struct SearchPage {
   aboutToAppear(): void {
     // §9.3：sourceMeta $r() 赋值放此处（资源上下文已就绪）
     this.sourceMeta = {
-      'diary': { label: '日记', icon: IconMapper.NAV_DIARY, color: '#00C2B8' },
-      'todo': { label: '待办', icon: IconMapper.TAB_TODO, color: '#80CBC4' },
+      'diary': { label: '日记', icon: IconMapper.NAV_DIARY, color: '#0A59F7' },
+      'todo': { label: '待办', icon: IconMapper.TAB_TODO, color: '#3B82F6' },
       'happy': { label: '开心事', icon: IconMapper.MOOD_PLEASANT, color: '#EC407A' },
       'extra': { label: '多做事', icon: IconMapper.ADD, color: '#90A4AE' },
       'extracted': { label: '提取', icon: IconMapper.TAG, color: '#8D6E63' }
@@ -122,7 +122,7 @@ export struct SearchPage {
     this.moodOptions = [
       { key: 'sunny', label: '晴', animPath: 'animations/sunny.json', color: '#E0BE72' },
       { key: 'star', label: '星', animPath: 'animations/night.json', color: '#E6D98A' },
-      { key: 'heart', label: '心', animPath: 'animations/happy.json', color: '#78909C' },
+      { key: 'heart', label: '心', animPath: 'animations/happy.json', color: '#FF4D4F' },
       { key: 'cloudy', label: '云', animPath: 'animations/sunclouds.json', color: '#94A3B8' },
       { key: 'rainy', label: '雨', animPath: 'animations/rain.json', color: '#4FC3F7' }
     ];
@@ -147,7 +147,7 @@ export struct SearchPage {
     if (meta) {
       return meta;
     }
-    return { label: '', icon: IconMapper.SEARCH, color: '#BDBDBD' };
+    return { label: '', icon: IconMapper.SEARCH, color: '#999999' };
   }
 
   /** HUI-040：半透明版本：ArkUI hex-alpha 为 #AARRGGBB，需前置 alpha（修复 alpha 后拼致底色发脏/失效 bug） */
@@ -191,75 +191,100 @@ export struct SearchPage {
     Stack() {
       Column() {
       // ═══════════════════════════════════════════════
-      // 搜索输入框（左放大镜 + 右清除 + 青 focus ring）
+      // 搜索输入框（左放大镜 + 右清除 + 蓝色 focus ring + 右侧「取消」按钮）
       // ═══════════════════════════════════════════════
       Row() {
-        SymbolGlyph(IconMapper.SEARCH)
-          .fontSize(18)
-          .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
-          .margin({ left: 16 })
+        // 搜索框主体（layoutWeight 撑满，右侧留取消按钮空间）
+        Row() {
+          SymbolGlyph(IconMapper.SEARCH)
+            .fontSize(18)
+            .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
+            .margin({ left: 16 })
 
-        TextInput({ text: this.keyword, placeholder: '搜索日记、待办和记录...' })
-          .fontSize(15)
-          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-          .placeholderColor(this.tokens ? this.tokens.textTertiary : '#BDBDBD')
-          .backgroundColor(Color.Transparent)
-          .layoutWeight(1)
-          .height(48)
-          .borderRadius(0)
-          .onChange((value: string) => {
-            this.keyword = value;
-            this.debounceSearch(value);
-          })
-          .onSubmit(() => {
-            this.executeSearch(this.keyword);
-          })
-          .onFocus(() => {
-            this.isFocused = true;
-          })
-          .onBlur(() => {
-            this.isFocused = false;
-          })
-          .accessibilityText('搜索输入框')
+          TextInput({ text: this.keyword, placeholder: '搜索日记、待办和记录...' })
+            .fontSize(15)
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+            .placeholderColor(this.tokens ? this.tokens.textTertiary : '#999999')
+            .backgroundColor(Color.Transparent)
+            .layoutWeight(1)
+            .height(48)
+            .borderRadius(0)
+            .onChange((value: string) => {
+              this.keyword = value;
+              this.debounceSearch(value);
+            })
+            .onSubmit(() => {
+              this.executeSearch(this.keyword);
+            })
+            .onFocus(() => {
+              this.isFocused = true;
+            })
+            .onBlur(() => {
+              this.isFocused = false;
+            })
+            .accessibilityText('搜索输入框')
 
-        if (this.keyword.length > 0) {
-          Button() {
-            SymbolGlyph(IconMapper.SEARCH_CLEAR)
-              .fontSize(18)
-              .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+          if (this.keyword.length > 0) {
+            Button() {
+              SymbolGlyph(IconMapper.SEARCH_CLEAR)
+                .fontSize(18)
+                .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
+            }
+            .width(36)
+            .height(36)
+            .borderRadius(18)
+            .backgroundColor(Color.Transparent)
+            .margin({ right: 8 })
+            .onClick(() => {
+              if (this.searchTimer >= 0) {
+                clearTimeout(this.searchTimer);
+              }
+              this.keyword = '';
+              this.dateQuery = ''; // HUI-001（七轮）：清除同时退出按日期查找模式
+              this.rawResults = [];
+              this.results = [];
+            })
+            .accessibilityText('清除搜索内容')
           }
-          .width(36)
-          .height(36)
-          .borderRadius(18)
-          .backgroundColor(Color.Transparent)
-          .margin({ right: 8 })
+        }
+        .layoutWeight(1)
+        .height(48)
+        .borderRadius(24)
+        .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
+        .border({
+          width: this.isFocused ? 2 : 1,
+          color: this.isFocused
+            ? (this.tokens ? this.tokens.primary : '#0A59F7')
+            : (this.tokens ? this.tokens.border : '#E0E6ED')
+        })
+        .shadow(
+          this.isFocused
+            ? { radius: 8, color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 0 }
+            : { radius: 0, color: 'rgba(0,0,0,0)', offsetX: 0, offsetY: 0 }
+        )
+
+        // 「取消」按钮（蓝色文字，清除搜索并退出活跃查询）
+        Text('取消')
+          .fontSize(15)
+          .fontWeight(500)
+          .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
+          .margin({ left: 12 })
           .onClick(() => {
             if (this.searchTimer >= 0) {
               clearTimeout(this.searchTimer);
             }
             this.keyword = '';
-            this.dateQuery = ''; // HUI-001（七轮）：清除同时退出按日期查找模式
+            this.dateQuery = '';
             this.rawResults = [];
             this.results = [];
+            this.activeType = 'all';
+            this.selectedMood = '';
+            this.selectedCategory = '';
+            this.openPanel = '';
           })
-          .accessibilityText('清除搜索内容')
-        }
+          .accessibilityText('取消搜索')
       }
       .width('100%')
-      .height(48)
-      .borderRadius(RADIUS.item)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
-      .border({
-        width: this.isFocused ? 2 : 1.5,
-        color: this.isFocused
-          ? (this.tokens ? this.tokens.primary : '#00C2B8')
-          : (this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)')
-      })
-      .shadow(
-        this.isFocused
-          ? { radius: 8, color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.20)', offsetX: 0, offsetY: 0 }
-          : { radius: 0, color: 'rgba(0,0,0,0)', offsetX: 0, offsetY: 0 }
-      )
       .margin({ top: 0, bottom: SPACING.cardGap })
       .accessibilityGroup(true)
       .accessibilityText('搜索框，输入关键词搜索')
@@ -268,33 +293,34 @@ export struct SearchPage {
       // 筛选卡：类型分段 + 心绪/分类下拉
       // ═══════════════════════════════════════════════
       Column() {
-        // 类型分段 pill 横滑
+        // 类型分段下划线 tab 横滑
         Scroll() {
           Row() {
             ForEach(this.typeOptions, (opt: TypeOption) => {
-              Text(opt.label)
-                .attributeModifier(SKETCH_BODY) // HUI-030：类型分段标签→清松手写体
-                .fontSize(TYPO.eyebrow.size)
-                .fontWeight(700)
-                .fontColor(this.activeType === opt.key
-                  ? (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-                  : (this.tokens ? this.tokens.textSecondary : '#5A5A5A'))
-                .opacity(this.activeType === opt.key ? 1.0 : 0.7)
-                .backgroundColor(this.activeType === opt.key
-                  ? (this.tokens ? this.tokens.btnPrimary : '#738A9C')
-                  : (this.tokens ? this.tokens.surface : '#FFFFFF')) // HUI-041：未选中底由死白改读 surface token（浅色 #F7F7F7 / 深色 #242424），修深色白底浅灰字不可见
-                .borderRadius(999)
-                .padding({ left: 14, right: 14, top: 7, bottom: 7 })
-                .border({
-                  width: this.activeType === opt.key ? 0 : 1,
-                  color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
-                })
-                .margin({ right: 6 })
-                .onClick(() => {
-                  this.activeType = opt.key;
-                  this.applyFilters();
-                })
-                .accessibilityText(opt.label + (this.activeType === opt.key ? '，已选中' : ''))
+              Column() {
+                Text(opt.label)
+                  .attributeModifier(SKETCH_BODY) // HUI-030：类型分段标签→清松手写体
+                  .fontSize(TYPO.body.size)
+                  .fontWeight(this.activeType === opt.key ? 600 : 400)
+                  .fontColor(this.activeType === opt.key
+                    ? (this.tokens ? this.tokens.primary : '#0A59F7')
+                    : (this.tokens ? this.tokens.textSecondary : '#666666'))
+                  .padding({ top: 8, bottom: 8 })
+
+                // 选中态蓝色下划线
+                Divider()
+                  .strokeWidth(2)
+                  .color(this.activeType === opt.key
+                    ? (this.tokens ? this.tokens.primary : '#0A59F7')
+                    : Color.Transparent)
+                  .width('100%')
+              }
+              .margin({ right: 16 })
+              .onClick(() => {
+                this.activeType = opt.key;
+                this.applyFilters();
+              })
+              .accessibilityText(opt.label + (this.activeType === opt.key ? '，已选中' : ''))
             })
           }
           .padding({ left: 0, right: 0 })
@@ -327,13 +353,13 @@ export struct SearchPage {
               .attributeModifier(SKETCH_BODY) // HUI-030：心绪触发标签→清松手写体
               .fontSize(TYPO.eyebrow.size)
               .fontWeight(500)
-              .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+              .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
 
             SymbolGlyph(this.openPanel === 'mood'
               ? IconMapper.COLLAPSE
               : IconMapper.EXPAND)
               .fontSize(12)
-              .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
+              .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
               .margin({ left: 4 })
           }
           .height(36)
@@ -341,9 +367,9 @@ export struct SearchPage {
           .padding({ left: 12, right: 12 })
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
           .layoutWeight(1)
           .onClick(() => {
             this.openPanel = this.openPanel === 'mood' ? '' : 'mood';
@@ -362,7 +388,7 @@ export struct SearchPage {
             } else {
               SymbolGlyph(IconMapper.TAG)
                 .fontSize(16)
-                .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
+                .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
                 .margin({ right: 6 })
             }
 
@@ -372,13 +398,13 @@ export struct SearchPage {
               .attributeModifier(SKETCH_BODY) // HUI-030：分类触发标签→清松手写体
               .fontSize(TYPO.eyebrow.size)
               .fontWeight(500)
-              .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+              .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
 
             SymbolGlyph(this.openPanel === 'category'
               ? IconMapper.COLLAPSE
               : IconMapper.EXPAND)
               .fontSize(12)
-              .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
+              .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
               .margin({ left: 4 })
           }
           .height(36)
@@ -386,9 +412,9 @@ export struct SearchPage {
           .padding({ left: 12, right: 12 })
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
           .layoutWeight(1)
           .onClick(() => {
             this.openPanel = this.openPanel === 'category' ? '' : 'category';
@@ -404,7 +430,7 @@ export struct SearchPage {
             Row() {
               SymbolGlyph($r('sys.symbol.circle_fill'))
                 .fontSize(16)
-                .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
+                .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
                 .margin({ right: 8 })
               Text('全部心绪')
                 .attributeModifier(SKETCH_BODY) // HUI-030：全部心绪项→清松手写体
@@ -415,7 +441,7 @@ export struct SearchPage {
               if (this.selectedMood.length === 0) {
                 SymbolGlyph(IconMapper.CHECKMARK)
                   .fontSize(14)
-                  .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                  .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
               }
             }
             .width('100%')
@@ -429,7 +455,7 @@ export struct SearchPage {
 
             Divider()
               .strokeWidth(0.5)
-              .color(this.tokens ? this.tokens.divider : '#F0F0F0')
+              .color(this.tokens ? this.tokens.divider : '#EEF0F4')
 
             ForEach(this.moodOptions, (mo: MoodOption) => {
               Row() {
@@ -453,7 +479,7 @@ export struct SearchPage {
                 if (this.selectedMood === mo.key) {
                   SymbolGlyph(IconMapper.CHECKMARK)
                     .fontSize(14)
-                    .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                    .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
                 }
               }
               .width('100%')
@@ -462,7 +488,7 @@ export struct SearchPage {
               .borderRadius(RADIUS.item)
               .backgroundColor(this.selectedMood === mo.key
                 // HUI-040：alpha 后拼 → withAlpha 前置（#AARRGGBB），fallback 同步改前置
-                ? (this.tokens ? this.withAlpha(this.tokens.btnPrimary, '08') : '#08738A9C')
+                ? (this.tokens ? this.withAlpha(this.tokens.btnPrimary, '08') : '#080A59F7')
                 : Color.Transparent)
               .onClick(() => {
                 this.selectedMood = mo.key;
@@ -475,10 +501,10 @@ export struct SearchPage {
           .width('100%')
           .borderRadius(RADIUS.item)
           .padding({ top: 8, bottom: 8 })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
           .margin({ top: 8 })
         }
@@ -490,7 +516,7 @@ export struct SearchPage {
             Row() {
               SymbolGlyph(IconMapper.TAG)
                 .fontSize(16)
-                .fontColor([this.tokens ? this.tokens.textTertiary : '#BDBDBD'])
+                .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
                 .margin({ right: 8 })
               Text('全部分类')
                 .attributeModifier(SKETCH_BODY) // HUI-030：全部分类项→清松手写体
@@ -501,7 +527,7 @@ export struct SearchPage {
               if (this.selectedCategory.length === 0) {
                 SymbolGlyph(IconMapper.CHECKMARK)
                   .fontSize(14)
-                  .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                  .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
               }
             }
             .width('100%')
@@ -515,7 +541,7 @@ export struct SearchPage {
 
             Divider()
               .strokeWidth(0.5)
-              .color(this.tokens ? this.tokens.divider : '#F0F0F0')
+              .color(this.tokens ? this.tokens.divider : '#EEF0F4')
 
             ForEach(this.categoryOptions, (co: CategoryOption) => {
               Row() {
@@ -534,7 +560,7 @@ export struct SearchPage {
                 if (this.selectedCategory === co.key) {
                   SymbolGlyph(IconMapper.CHECKMARK)
                     .fontSize(14)
-                    .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                    .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
                 }
               }
               .width('100%')
@@ -543,7 +569,7 @@ export struct SearchPage {
               .borderRadius(RADIUS.item)
               .backgroundColor(this.selectedCategory === co.key
                 // HUI-040：alpha 后拼 → withAlpha 前置（#AARRGGBB），fallback 同步改前置
-                ? (this.tokens ? this.withAlpha(this.tokens.btnPrimary, '08') : '#08738A9C')
+                ? (this.tokens ? this.withAlpha(this.tokens.btnPrimary, '08') : '#080A59F7')
                 : Color.Transparent)
               .onClick(() => {
                 this.selectedCategory = co.key;
@@ -556,10 +582,10 @@ export struct SearchPage {
           .width('100%')
           .borderRadius(RADIUS.item)
           .padding({ top: 8, bottom: 8 })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
           .margin({ top: 8 })
         }
@@ -567,10 +593,10 @@ export struct SearchPage {
       .width('100%')
       .borderRadius(RADIUS.cardMd)
       .padding(SPACING.cardPadSm)
-      .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+      .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
       .border({
         width: 1,
-        color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+        color: this.tokens ? this.tokens.border : '#E0E6ED'
       })
       .margin({ bottom: SPACING.cardGap })
       .accessibilityGroup(true)
@@ -626,7 +652,7 @@ export struct SearchPage {
               .attributeModifier(SKETCH_BODY) // HUI-030：结果计数中文标签→清松手写体（内嵌数非纯数字统计）
               .fontSize(TYPO.eyebrow.size)
               .fontWeight(600)
-              .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+              .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
           }
           .width('100%')
           .padding({ top: 0, bottom: 10 })
@@ -661,12 +687,12 @@ export struct SearchPage {
                     Text(DateUtils.formatShortCN(item.date))
                       .fontSize(12)
                       .fontWeight(600)
-                      .fontColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+                      .fontColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
                   }
                   .padding({ left: 10, right: 10, top: 4, bottom: 4 })
                   .borderRadius(12)
                   // HUI-040：alpha 后拼 → withAlpha 前置（#AARRGGBB），fallback 同步改前置
-                  .backgroundColor(this.tokens ? this.withAlpha(this.tokens.btnPrimary, '10') : '#10738A9C')
+                  .backgroundColor(this.tokens ? this.withAlpha(this.tokens.btnPrimary, '10') : '#100A59F7')
                   .onClick(() => {
                     if (this.onDateClick) {
                       this.onDateClick(item.date);
@@ -693,7 +719,7 @@ export struct SearchPage {
                   .attributeModifier(SKETCH_BODY) // HUI-030：结果预览→清松手写体
                   .fontSize(TYPO.body.size)
                   .fontWeight(400)
-                  .fontColor(this.tokens ? this.tokens.textTertiary : '#8A8A8A')
+                  .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
@@ -710,7 +736,7 @@ export struct SearchPage {
               if (idx < this.results.length - 1) {
                 Divider()
                   .strokeWidth(0.5)
-                  .color(this.tokens ? this.tokens.divider : '#F0F0F0')
+                  .color(this.tokens ? this.tokens.divider : '#EEF0F4')
               }
             }, (item: SearchResultItem) => item.id.toString())
           }
@@ -718,10 +744,10 @@ export struct SearchPage {
           .borderRadius(RADIUS.cardMd)
           .padding({ left: SPACING.cardPadSm, right: SPACING.cardPadSm,
             top: SPACING.cardPadSm, bottom: SPACING.cardPadSm })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
           .accessibilityGroup(true)
           .accessibilityText('搜索结果列表，共' + this.results.length.toString() + '条')
@@ -767,14 +793,14 @@ export struct SearchPage {
                 .attributeModifier(SKETCH_TITLE) // HUI-030：区块标题→猫啃什锦黑
                 .fontSize(TYPO.cardTitle.size)
                 .fontWeight(600)
-                .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+                .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
                 .opacity(0.7)
               Blank()
               Text('清除全部')
                 .attributeModifier(SKETCH_BODY) // HUI-030：清除全部动作标签→清松手写体
                 .fontSize(TYPO.body.size)
                 .fontWeight(500)
-                .fontColor(this.tokens ? this.tokens.danger : '#78909C')
+                .fontColor(this.tokens ? this.tokens.danger : '#FF4D4F')
                 .onClick(() => {
                   this.clearAllHistory();
                 })
@@ -787,7 +813,7 @@ export struct SearchPage {
               Row() {
                 SymbolGlyph(IconMapper.HISTORY)
                   .fontSize(16)
-                  .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+                  .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
                   .margin({ right: 10 })
 
                 Text(h)
@@ -803,7 +829,7 @@ export struct SearchPage {
 
                 SymbolGlyph(IconMapper.CLOSE)
                   .fontSize(14)
-                  .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+                  .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
                   .width(36)
                   .height(36)
                   .borderRadius(18)
@@ -821,7 +847,7 @@ export struct SearchPage {
               if (idx < this.history.length - 1) {
                 Divider()
                   .strokeWidth(0.5)
-                  .color(this.tokens ? this.tokens.divider : '#F0F0F0')
+                  .color(this.tokens ? this.tokens.divider : '#EEF0F4')
               }
             }, (h: string, idx: number) => h + '_' + idx.toString())
           }
@@ -829,10 +855,10 @@ export struct SearchPage {
           .borderRadius(RADIUS.cardMd)
           .padding({ left: SPACING.cardPadSm, right: SPACING.cardPadSm,
             top: SPACING.cardPadSm, bottom: SPACING.cardPadSm })
-          .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+          .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
           .border({
             width: 1,
-            color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+            color: this.tokens ? this.tokens.border : '#E0E6ED'
           })
           .margin({ bottom: SPACING.cardGap })
           .accessibilityGroup(true)
@@ -843,7 +869,7 @@ export struct SearchPage {
         Row() {
           SymbolGlyph(IconMapper.TAB_CALENDAR)
             .fontSize(20)
-            .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+            .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
             .margin({ right: 12 })
 
           Column() {
@@ -856,7 +882,7 @@ export struct SearchPage {
               .attributeModifier(SKETCH_BODY) // HUI-030：入口说明→清松手写体
               .fontSize(TYPO.eyebrow.size)
               .fontWeight(400)
-              .fontColor(this.tokens ? this.tokens.textTertiary : '#8A8A8A')
+              .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
               .margin({ top: 2 })
           }
           .alignItems(HorizontalAlign.Start)
@@ -864,16 +890,16 @@ export struct SearchPage {
 
           SymbolGlyph(IconMapper.FORWARD)
             .fontSize(18)
-            .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+            .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
         }
         .width('100%')
         .height(64)
         .padding({ left: SPACING.cardPadSm, right: SPACING.cardPadSm })
         .borderRadius(RADIUS.cardMd)
-        .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+        .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
         .border({
           width: 1,
-          color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+          color: this.tokens ? this.tokens.border : '#E0E6ED'
         })
         .margin({ bottom: SPACING.cardGap })
         .onClick(() => {
@@ -888,7 +914,7 @@ export struct SearchPage {
             .attributeModifier(SKETCH_TITLE) // HUI-030：区块标题→猫啃什锦黑
             .fontSize(TYPO.cardTitle.size)
             .fontWeight(600)
-            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
             .opacity(0.7)
             .width('100%')
             .padding({ left: 0, right: 0, top: 0, bottom: 10 })
@@ -899,11 +925,11 @@ export struct SearchPage {
                 .attributeModifier(SKETCH_BODY) // HUI-030：热门标签→清松手写体
                 .fontSize(TYPO.body.size)
                 .fontWeight(400)
-                .fontColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+                .fontColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
                 .padding({ left: 14, right: 14, top: 8, bottom: 8 })
                 .borderRadius(999)
                 // HUI-040：alpha 后拼 → withAlpha 前置（#AARRGGBB），fallback 同步改前置
-                .backgroundColor(this.tokens ? this.withAlpha(this.tokens.btnPrimary, '10') : '#10738A9C')
+                .backgroundColor(this.tokens ? this.withAlpha(this.tokens.btnPrimary, '10') : '#100A59F7')
                 .margin({ right: 8, bottom: 8 })
                 .onClick(() => {
                   this.keyword = tag;
@@ -919,10 +945,10 @@ export struct SearchPage {
         .borderRadius(RADIUS.cardMd)
         .padding({ left: SPACING.cardPadSm, right: SPACING.cardPadSm,
           top: SPACING.cardPadSm, bottom: SPACING.cardPadSm })
-        .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
+        .backgroundColor(this.tokens ? this.tokens.surface : '#F0F4F8')
         .border({
           width: 1,
-          color: this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)'
+          color: this.tokens ? this.tokens.border : '#E0E6ED'
         })
       }
       .width('100%')

@@ -13,8 +13,12 @@
     "pages/TomorrowPage",
     "pages/ElderModePage",
     "pages/FamilyPage",
+    "pages/FamilyMemberDetailPage",
+    "pages/FamilyNotificationPage",
     "pages/LoginPage",
     "pages/BackupPreviewPage",
-    "pages/QuickCameraPage"
+    "pages/QuickCameraPage",
+    "pages/SearchPage",
+    "pages/StatisticsPage"
   ]
 }

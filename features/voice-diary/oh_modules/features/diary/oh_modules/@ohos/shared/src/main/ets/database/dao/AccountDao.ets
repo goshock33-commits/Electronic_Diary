@@ -5,6 +5,7 @@
 // Architecture: Follows existing DAO patterns (AppSettingsDao et al.)
 // Dev paradigm: Async RelationalStore via DatabaseExecutor
 // T701: 自愈补列 nickname + saveLoginAccount 写入 + getNickname 查询
+// fix: DEV-006 · T013 读路径补 avatar/gender/birthday/bio（readNullableText 统一兜底）+ 新增 updateProfile 写路径
 
 import { relationalStore } from '@kit.ArkData';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -58,7 +59,12 @@ export class AccountDao {
             'is_logged_in': resultSet.getLong(resultSet.getColumnIndex('is_logged_in')),
             'login_time': resultSet.getLong(resultSet.getColumnIndex('login_time')),
             'created_at': resultSet.getLong(resultSet.getColumnIndex('created_at')),
-            'nickname': resultSet.getString(resultSet.getColumnIndex('nickname'))
+            // fix: DEV-006 · T013 自愈补列在老数据上恒为 NULL → getString 直取有 14800013 风险，统一 isColumnNull 兜底
+            'nickname': AccountDao.readNullableText(resultSet, 'nickname'),
+            'avatar': AccountDao.readNullableText(resultSet, 'avatar'),
+            'gender': AccountDao.readNullableText(resultSet, 'gender'),
+            'birthday': AccountDao.readNullableText(resultSet, 'birthday'),
+            'bio': AccountDao.readNullableText(resultSet, 'bio')
           };
         }
         resultSet.close();
@@ -86,11 +92,53 @@ export class AccountDao {
             'is_logged_in': resultSet.getLong(resultSet.getColumnIndex('is_logged_in')),
             'login_time': resultSet.getLong(resultSet.getColumnIndex('login_time')),
             'created_at': resultSet.getLong(resultSet.getColumnIndex('created_at')),
-            'nickname': resultSet.getString(resultSet.getColumnIndex('nickname'))
+            // fix: DEV-006 · T013 同上，可空文本列一律 isColumnNull 兜底
+            'nickname': AccountDao.readNullableText(resultSet, 'nickname'),
+            'avatar': AccountDao.readNullableText(resultSet, 'avatar'),
+            'gender': AccountDao.readNullableText(resultSet, 'gender'),
+            'birthday': AccountDao.readNullableText(resultSet, 'birthday'),
+            'bio': AccountDao.readNullableText(resultSet, 'bio')
           };
         }
         resultSet.close();
         return result;
+      });
+  }
+
+  /**
+   * fix: DEV-006 · T013 · 可空文本列统一读取（列不存在或值为 NULL 均返回 null）。
+   * 🔴 双重防御的必要性：
+   *   ① 值为 NULL —— avatar/gender/birthday/bio/nickname 都是 ALTER 自愈补列，老行恒 NULL，getString 直取有风险；
+   *   ② 列不存在 —— getColumnIndex 对未知列返回 -1（病态库尚未补列时），此时必须早退而非硬读。
+   */
+  private static readNullableText(resultSet: relationalStore.ResultSet, column: string): string | null {
+    const idx: number = resultSet.getColumnIndex(column);
+    if (idx < 0) {
+      return null;
+    }
+    return resultSet.isColumnNull(idx) ? null : resultSet.getString(idx);
+  }
+
+  /**
+   * fix: DEV-006 · T013 · 更新账号资料 4 列（不动登录态 / token / phone）。
+   * 传 null 即清空该项（全量覆盖口径，与 FamilyMemberDao.update 一致）。
+   * @returns 受影响行数（0 = uid 不存在）
+   */
+  static async updateProfile(uid: string, avatar: string | null, gender: string | null,
+    birthday: string | null, bio: string | null): Promise<number> {
+    return DatabaseExecutor.executeWrite<number>('AccountDao.updateProfile',
+      async (store: relationalStore.RdbStore): Promise<number> => {
+        const valueBucket: relationalStore.ValuesBucket = {
+          'avatar': avatar,
+          'gender': gender,
+          'birthday': birthday,
+          'bio': bio
+        };
+        const predicates = new relationalStore.RdbPredicates('account');
+        predicates.equalTo('uid', uid);
+        const rows = await store.update(valueBucket, predicates);
+        hilog.info(0x0000, TAG, 'updateProfile: uid=%{public}s rows=%{public}d', uid, rows);
+        return rows;
       });
   }
 
@@ -162,7 +210,9 @@ export class AccountDao {
         const resultSet = await store.querySql(sql, [uid]);
         let nick: string = '';
         if (resultSet.goToFirstRow()) {
-          nick = resultSet.getString(resultSet.getColumnIndex('nickname'));
+          // fix: DEV-006 · T013 nickname 为自愈补列，老行值 NULL → 走统一兜底读取
+          const raw: string | null = AccountDao.readNullableText(resultSet, 'nickname');
+          nick = raw !== null ? raw : '';
         }
         resultSet.close();
         return nick.length > 0 ? nick : '';

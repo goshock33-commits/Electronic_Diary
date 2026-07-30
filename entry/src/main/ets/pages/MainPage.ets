@@ -18,8 +18,8 @@ import { FloatingTabBar } from '@ohos/shared';
 import { router } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { HomePage } from './HomePage';
+import { CalendarPage } from './CalendarPage';
 import { TimelineTodoView } from './TimelineTodoView';
-import { ExploreView } from './ExploreView';
 import { SettingsPage } from './SettingsPage';
 import { AIChatView } from 'features_voice_diary';
 // fix: F5-v2 —— 用户审查：撤掉 FloatingEntry 浮球（任务提取整合进 AI 伙伴对话）；仅保留剪贴板检测器
@@ -30,21 +30,20 @@ import { CameraQuickBall } from '../components/CameraQuickBall';
 const TAG: string = 'MainPage';
 
 /**
- * 底部 5 Tab 配置（P1-01 由 6 Tab 收敛而来）
- * 顺序：日记本 / 时光轴 / AI伙伴 / 时光探索 / 我的
- * 图标全部使用 IconMapper 常量（SymbolGlyph $r('sys.symbol.xxx')），禁止 emoji：
- *   日记本   → NAV_DIARY(book_open_fill)
- *   时光轴   → TAB_TODO(list_bullet)
- *   AI伙伴   → AI_COMPANION(face_smiling)
- *   时光探索 → NAV_EXPLORE(magnifyingglass)
- *   我的     → SETTINGS(gearshape_fill)
+ * 底部 5 Tab 配置（页面改版：首页/日记/Mimi/待办/我的）
+ * 顺序：首页 / 日记 / Mimi / 待办 / 我的
+ *   首页   → home (家庭消息流)
+ *   日记   → diary (日记列表)
+ *   Mimi   → ai (AI助手)
+ *   待办   → todo (待办列表)
+ *   我的   → profile (设置)
  */
 const TAB_CONFIGS: TabItemConfig[] = [
-  { key: 'diary', icon: $r('app.media.icon_diary'), label: '日记本' },
-  { key: 'timeline', icon: $r('app.media.icon_timeline'), label: '时光轴' },
-  { key: 'ai', icon: IconMapper.AI_COMPANION, label: 'AI伙伴' },
-  { key: 'explore', icon: $r('app.media.icon_explore'), label: '时光探索' },
-  { key: 'profile', icon: $r('app.media.icon_profile'), label: '我的' }
+  { key: 'home', icon: IconMapper.TAB_HOME, label: '首页' },
+  { key: 'diary', icon: IconMapper.NAV_DIARY, label: '日记' },
+  { key: 'ai', icon: IconMapper.AI_COMPANION, label: 'Mimi' },
+  { key: 'todo', icon: IconMapper.TAB_TODO, label: '待办' },
+  { key: 'profile', icon: IconMapper.NAV_PROFILE, label: '我的' }
 ];
 
 @Entry
@@ -53,9 +52,9 @@ struct MainPage {
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
   @StorageLink('theme_is_dark') isDark: boolean = false;
   @StorageLink('app_font_scale') @Watch('onFontScaleChange') fontScale: number = 1;
-  @State currentTab: string = 'diary';
+  @State currentTab: string = 'home';
   @State currentTabIndex: number = 0;
-  @State currentTitle: string = '日记本';
+  @State currentTitle: string = '首页';
   @State isLoaded: boolean = false;
   // fix: HUI-016 · T-D04 —— 换肤重建开关：THEME_CHANGED 时翻转，驱动 5 个 TabContent 子树整体重建。
   //   实证依据（hilog + 截图，见交付报告）：懒加载 TabContent 子树内的 @StorageLink 收不到任何
@@ -145,7 +144,7 @@ struct MainPage {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
         // 顶部标题栏已按原型移除（原型无标题栏）；顶部青色 blur 光晕层已删（HUI-069/072）
-        // Tab 内容区（5 Tab：日记本 / 时光轴 / AI伙伴 / 时光探索 / 我的）
+        // Tab 内容区（5 Tab：首页 / 日记 / Mimi / 待办 / 我的）
         Tabs({
           barPosition: BarPosition.End,
           index: this.currentTabIndex
@@ -163,9 +162,9 @@ struct MainPage {
 
           TabContent() {
             if (this.themeRebuildFlip) {
-              TimelineTodoView()
+              CalendarPage()
             } else {
-              TimelineTodoView()
+              CalendarPage()
             }
           }
           .tabBar('')
@@ -181,9 +180,9 @@ struct MainPage {
 
           TabContent() {
             if (this.themeRebuildFlip) {
-              ExploreView()
+              TimelineTodoView()
             } else {
-              ExploreView()
+              TimelineTodoView()
             }
           }
           .tabBar('')
@@ -241,7 +240,7 @@ struct MainPage {
       }
 
       // HUI-001: 猫爪视觉层（同树最上层子节点，整层 None 不参与命中，不挡交互）
-      PawOverlayLayer()
+      // PawOverlayLayer()
 
       // fix: F5-v2 —— FloatingEntry 浮球已按用户审查意见移除（任务提取整合进 AI 伙伴对话，见 AIChatView）
     }
@@ -258,13 +257,13 @@ struct MainPage {
     const idx = TAB_CONFIGS.findIndex((t: TabItemConfig) => t.key === key);
     this.currentTabIndex = idx >= 0 ? idx : 0;
     const titles: Record<string, string> = {
-      'diary': '日记本',
-      'timeline': '时光轴',
-      'ai': 'AI伙伴',
-      'explore': '时光探索',
+      'home': '首页',
+      'diary': '日记',
+      'ai': 'Mimi',
+      'todo': '待办',
       'profile': '我的'
     };
-    this.currentTitle = titles[key] || '日记本';
+    this.currentTitle = titles[key] || '首页';
   }
 
   /**

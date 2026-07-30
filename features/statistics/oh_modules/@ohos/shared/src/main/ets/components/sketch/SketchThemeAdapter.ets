@@ -8,42 +8,41 @@
 // 说明：适配器提供纯函数，不依赖 ArkUI 组件生命周期，所有颜色基于 isDark 布尔值计算
 
 /**
- * 手绘图标描边色
- * 浅色模式：黑色 (#000000) — 模拟铅笔/钢笔线条
- * 深色模式：白色 (#FFFFFF) — 深色背景上可见，对比度 ~16:1（远超 WCAG AA 4.5:1）
+ * 图标描边色
+ * 浅色模式：深色 #1A1A1A
+ * 深色模式：白色 #FFFFFF
  * @param isDark 是否深色模式
  * @returns 十六进制颜色值
  */
 export function getStrokeColor(isDark: boolean): string {
-  return isDark ? '#FFFFFF' : '#000000';
+  return isDark ? '#FFFFFF' : '#1A1A1A';
 }
 
 /**
- * 手绘图标填充色
+ * 图标填充色
  * 与描边色保持一致，用于实心元素（中心点、填充块）
  * @param isDark 是否深色模式
  * @returns 十六进制颜色值
  */
 export function getFillColor(isDark: boolean): string {
-  return isDark ? '#FFFFFF' : '#000000';
+  return isDark ? '#FFFFFF' : '#1A1A1A';
 }
 
 /**
  * 次要/辅助色（灰色调）
- * 浅色模式：浅灰 (#CCCCCC) — 背景轨道、未激活状态
- * 深色模式：中灰 (#666666) — 深色背景上清晰可辨但弱于主色
+ * 浅色模式：浅灰 (#E0E6ED)
+ * 深色模式：中灰 (#3A3A3A)
  * @param isDark 是否深色模式
  * @returns 十六进制颜色值
  */
 export function getSecondaryColor(isDark: boolean): string {
-  return isDark ? '#666666' : '#CCCCCC';
+  return isDark ? '#3A3A3A' : '#E0E6ED';
 }
 
 /**
- * 三级不均匀手绘边框样式常量
+ * 三级均匀边框样式常量
  *
- * 设计意图：边框四边宽度不对称（左窄右宽、上薄下厚），模拟手绘时笔压不均的自然效果。
- * 深色感知：颜色由调用方结合 getStrokeColor() 传入。
+ * 设计意图：统一均匀边框宽度，干净利落的卡片风格。
  *
  * PRIMARY   — 一级功能卡片（统计数据卡、日记轮播、打卡区域）
  * SECONDARY — 二级区域（搜索面板、心情列表、待办项）
@@ -57,24 +56,24 @@ export interface SketchBorderStyle {
 }
 
 export const SKETCH_BORDER_PRIMARY: SketchBorderStyle = {
-  left: 2,
-  right: 4,
+  left: 1.5,
+  right: 1.5,
   top: 1.5,
-  bottom: 3
+  bottom: 1.5
 };
 
 export const SKETCH_BORDER_SECONDARY: SketchBorderStyle = {
-  left: 1.5,
-  right: 3,
+  left: 1,
+  right: 1,
   top: 1,
-  bottom: 2
+  bottom: 1
 };
 
 export const SKETCH_BORDER_TERTIARY: SketchBorderStyle = {
-  left: 1,
-  right: 2,
+  left: 0.5,
+  right: 0.5,
   top: 0.5,
-  bottom: 1.5
+  bottom: 0.5
 };
 
 /** getBorderStyle 返回值类型 */

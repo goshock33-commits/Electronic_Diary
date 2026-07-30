@@ -1,5 +1,5 @@
 {
-  "name": "features/statistics",
+  "name": "features_statistics",
   "version": "1.0.0",
   "description": "Feature module: statistics",
   "main": "Index.ets",

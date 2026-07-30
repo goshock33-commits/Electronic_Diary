@@ -481,7 +481,7 @@ struct LoginPage {
       .onTouch((event: TouchEvent) => reportPawTouch(event))
 
       // 猫爪视觉层（同树最上层子节点，不参与命中，不挡交互）
-      PawOverlayLayer()
+      // PawOverlayLayer()
     }
     .width('100%')
     .height('100%')

@@ -1,4 +1,5 @@
 // agentID: HUI-078
+// agentID: HUI-002（新增"指派给家人"功能）
 // HUI-078 改造（主 Agent 派发）：今日/明日 pills → 自由日期选择器（复用 shared ThemedDatePickerModal）；
 //   新增 时间输入 + 地点输入 + 自定义标签输入 + 提醒日期时间双选择器（日期 ThemedDatePickerModal +
 //   时:分 ThemedTimePickerModal）。根节点升级全屏 Stack（自绘遮罩点击关闭，等价原 autoCancel），
@@ -6,10 +7,13 @@
 //   卡片内容包 Scroll 防字段增多后超高。type 由 dueDate 推导（今天→today，否则→tomorrow）保持
 //   现有 VM 通路不动；dueDate/timeText/location/customTag/remindDate/remindTime 随 AddTodoResult
 //   回传，持久化待 DEV 补（不改 DAO/VM）。
+// HUI-002 改造：新增"指派给家人"功能——Toggle 开关 + 家庭成员选择器（pills 样式），
+//   过滤掉自己（is_self=1），选中成员的 ID 通过 AddTodoResult.assignToMemberId 回传（0=不指派）。
+//   页面层负责调用 FamilyMessageManager.sendTodoMessage() 发送消息（UI 层不调用业务逻辑）。
 // HUI-001 改造：支持「编辑模式」——editMode+preset* 预填内容、标题/按钮文案切换（编辑待办/保存）。
-// 组件：新增待办弹窗（毛玻璃背景+输入框+自由日期+时间/地点/标签输入+提醒双选择器+6色日程标签选择）
+// 组件：新增待办弹窗（毛玻璃背景+输入框+自由日期+时间/地点/标签输入+提醒双选择器+6色日程标签选择+指派家人）
 // 关联设计稿：UX-001 §2.3 TodoView 复刻（Add Modal）
-// 关联任务：P2-01 待办「时光轴」TodoView 复刻 / AddTodoDialog 字段扩展
+// 关联任务：P2-01 待办「时光轴」TodoView 复刻 / AddTodoDialog 字段扩展 / HUI-002 指派给家人
 // Skill 参考：frontend-design / ui-ux-pro-max / brainstorming
 // 开发范式：ArkTS 声明式开发范式
 // 无障碍：accessibilityText + 触控热区 >= 48x48vp（chip 34vp 高但整行可点区域达标，同原 pills）
@@ -19,15 +23,18 @@
 import type { ThemeColorTokens } from '@ohos/shared';
 // HUI-029：SKETCH_TITLE=猫啃什锦黑（弹窗标题）、SKETCH_BODY=清松手写体2（字段标签）；各 Button(string) 不动。
 // HUI-078：追加 ThemedDatePickerModal / ThemedTimePickerModal（自由日期 + 提醒双选择器）、DateUtils。
+// HUI-002：追加 FamilyMember / FamilyMemberDao（家庭成员指派功能）。
 import {
   IconMapper, RADIUS, SPACING, SKETCH_TITLE, SKETCH_BODY,
-  ThemedDatePickerModal, ThemedTimePickerModal, DateUtils
+  ThemedDatePickerModal, ThemedTimePickerModal, DateUtils,
+  FamilyMember, FamilyMemberDao
 } from '@ohos/shared';
 
 /**
  * 新增待办提交数据
  * HUI-078：扩展自由日期/时间/地点/自定义标签/提醒字段（空串=未填写）。
  * type 保留（由 dueDate 推导今/明），现有页面层 VM 通路零改动；新字段持久化待 DEV 接线。
+ * HUI-002：新增 assignToMemberId（指派给家庭成员的 ID，0=不指派）。
  */
 export interface AddTodoResult {
   title: string;
@@ -45,6 +52,8 @@ export interface AddTodoResult {
   remindDate: string;
   /** 提醒时间 HH:mm（空=未设） */
   remindTime: string;
+  /** HUI-002：指派给家庭成员的 ID（0=不指派） */
+  assignToMemberId: number;
 }
 
 /**
@@ -79,6 +88,8 @@ export struct AddTodoDialog {
   presetRemindDate: string = '';
   /** 编辑模式预填提醒时间 HH:mm（HUI-078） */
   presetRemindTime: string = '';
+  /** HUI-002：编辑模式预填指派成员 ID（0=不指派） */
+  presetAssignToMemberId: number = 0;
 
   /** 输入文字 */
   @State private inputText: string = '';
@@ -104,6 +115,12 @@ export struct AddTodoDialog {
   @State private showRemindDatePicker: boolean = false;
   /** HUI-078：提醒时:分选择器显隐 */
   @State private showRemindTimePicker: boolean = false;
+  /** HUI-002：是否指派给家人 */
+  @State private isAssignToFamily: boolean = false;
+  /** HUI-002：选中的家庭成员 ID（0=未选择） */
+  @State private selectedMemberId: number = 0;
+  /** HUI-002：家庭成员列表 */
+  @State private familyMembers: FamilyMember[] = [];
 
   aboutToAppear(): void {
     // HUI-078：截止日期默认今天；编辑模式预填既有内容
@@ -119,6 +136,24 @@ export struct AddTodoDialog {
       this.customTag = this.presetCustomTag;
       this.remindDate = this.presetRemindDate;
       this.applyPresetRemindTime();
+      // HUI-002：预填指派成员
+      if (this.presetAssignToMemberId > 0) {
+        this.isAssignToFamily = true;
+        this.selectedMemberId = this.presetAssignToMemberId;
+      }
+    }
+    // HUI-002：加载家庭成员列表（异步，过滤掉自己）
+    this.loadFamilyMembers();
+  }
+
+  /** HUI-002：加载家庭成员列表（过滤掉 is_self=1 的自己） */
+  private async loadFamilyMembers(): Promise<void> {
+    try {
+      const allMembers = await FamilyMemberDao.queryAll();
+      // 过滤掉自己（is_self=1），只保留其他家庭成员
+      this.familyMembers = allMembers.filter((m: FamilyMember) => m.is_self !== 1);
+    } catch (err) {
+      this.familyMembers = [];
     }
   }
 
@@ -209,7 +244,8 @@ export struct AddTodoDialog {
         location: this.locationText.trim(),
         customTag: this.customTag.trim(),
         remindDate: this.remindDate,
-        remindTime: this.getRemindTimeValue()
+        remindTime: this.getRemindTimeValue(),
+        assignToMemberId: this.isAssignToFamily ? this.selectedMemberId : 0
       };
       this.onSubmit(result);
     }
@@ -557,7 +593,64 @@ export struct AddTodoDialog {
       }
     }
     .width('100%')
-    .margin({ bottom: 20 })
+    .margin({ bottom: 16 })
+
+    // ── HUI-002：指派给家人（Toggle 开关 + 成员选择器）──
+    if (this.familyMembers.length > 0) {
+      Column() {
+        // 指派开关行
+        Row() {
+          Text('指派给家人')
+            .fontSize(13)
+            .fontWeight(500)
+            .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+            .attributeModifier(SKETCH_BODY)
+
+          Blank()
+
+          Toggle({ type: ToggleType.Switch, isOn: this.isAssignToFamily })
+            .selectedColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
+            .onChange((isOn: boolean) => {
+              this.isAssignToFamily = isOn;
+              // 关闭时清空选择
+              if (!isOn) {
+                this.selectedMemberId = 0;
+              }
+            })
+            .accessibilityText('指派给家人开关' + (this.isAssignToFamily ? '，已开启' : '，已关闭'))
+        }
+        .width('100%')
+        .margin({ bottom: this.isAssignToFamily ? 12 : 0 })
+
+        // 家庭成员选择器（条件显示）
+        if (this.isAssignToFamily) {
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(this.familyMembers, (member: FamilyMember) => {
+              Button(member.nickname)
+                .type(ButtonType.Capsule)
+                .fontSize(11)
+                .fontWeight(this.selectedMemberId === member.id ? 700 : 500)
+                .fontColor(this.selectedMemberId === member.id ?
+                  (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF') :
+                  (this.tokens ? this.tokens.textSecondary : '#5A5A5A'))
+                .backgroundColor(this.selectedMemberId === member.id ?
+                  (this.tokens ? this.tokens.btnPrimary : '#738A9C') :
+                  (this.tokens ? this.tokens.surface : '#FFFFFF'))
+                .height(32)
+                .padding({ left: 12, right: 12 })
+                .borderRadius(16)
+                .margin({ right: 6, bottom: 6 })
+                .onClick(() => {
+                  this.selectedMemberId = member.id;
+                })
+                .accessibilityText(member.nickname + (this.selectedMemberId === member.id ? '，已选中' : ''))
+            })
+          }
+        }
+      }
+      .width('100%')
+      .margin({ bottom: 20 })
+    }
 
     // 操作按钮区
     Row() {

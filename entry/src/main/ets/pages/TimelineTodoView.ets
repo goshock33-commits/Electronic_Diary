@@ -1,4 +1,5 @@
 // agentID: HUI-076（承接 HUI-054 时光轴待办设计，抽为可嵌入组件）
+// agentID: DEV-036（从消息跳转时定位到指定待办）
 // 组件：时光轴待办视图「时光轴」eyebrow+H1+青进度卡+分类筛选pill+今日备忘+明日日程
 // 说明：本组件为 MainPage「时光轴」Tab 的嵌入内容（@Component 可复用，非 @Entry）。
 //       原 pages/TodoPage.ets 的 TodoView 复刻实现整体迁移至此，struct 更名 TimelineTodoView，
@@ -12,11 +13,14 @@
 //   新增/勾选/删除改调 VM 写方法并回读；订阅 EventBus TODO_* 跨页刷新，aboutToDisappear off。
 //   字段映射（R3 蛇形→驼峰）：TodoItem.completed(0/1) → TodoItemData.completed(bool) 用 isCompleted()；
 //   sourceLabel 映射自 TodoItem.category（日常/学习/工作/日记/微信/语音），对齐 AddTodoDialog categoryOptions。
+// fix: DEV-036 · 从消息跳转时定位到指定待办：
+//   aboutToAppear 读取 AppStorage('todo_detail_id')，如果存在则调用 loadDataAndEdit(id) 先加载数据后打开编辑对话框。
 
 import type { ThemeColorTokens, Result, FamilyMember } from '@ohos/shared';
 // HUI-026：引入手绘字体助手（全局黑白手绘换肤）——SKETCH_TITLE=猫啃(H1/eyebrow/kicker)，SKETCH_BODY=清松(标签/正文)；纯数字仍走 FONT.mono*。
 // DEV-FAMILY 接线：FamilyManager.getSelf() 取本机成员昵称，供 toData 填 assigneeName（「执行人」chip）。
-import { IconMapper, RADIUS, SPACING, TYPO, FONT, TodoItem, EventBus, DateUtils, SKETCH_TITLE, SKETCH_BODY, FrostedDialog, FamilyManager } from '@ohos/shared';
+// DEV-035：待办指派消息发送（FamilyMemberDao 查被指派人 uid，FamilyMessageManager 发送消息）
+import { IconMapper, RADIUS, SPACING, TYPO, FONT, TodoItem, EventBus, DateUtils, SKETCH_TITLE, SKETCH_BODY, FrostedDialog, FamilyManager, FamilyMemberDao, FamilyMessageManager } from '@ohos/shared';
 import { TodoList, TodoViewModel, type TodoReminderOptions } from 'features/todo';
 import { AddTodoDialog, type AddTodoResult } from 'features/todo';
 import type { TodoItemData } from 'features/todo';
@@ -90,7 +94,14 @@ export struct TimelineTodoView {
   /** 进度条动画宽度 */
   @State private progressAnimWidth: number = 0;
 
-  /** 筛选选项 */
+  /** Tab 切换选项（全部/我创建的/分配给我的） */
+  private tabOptions: FilterOption[] = [
+    { label: '全部', key: '全部' },
+    { label: '我创建的', key: '我创建的' },
+    { label: '分配给我的', key: '分配给我的' }
+  ];
+
+  /** 分类筛选选项 */
   private filterOptions: FilterOption[] = [
     { label: '全部', key: '全部' },
     { label: '日常', key: '日常' },
@@ -160,8 +171,18 @@ export struct TimelineTodoView {
   // ═══════════════════════════════════════════════════
 
   aboutToAppear(): void {
-    // 异步拉真实今/明待办（不阻塞首帧）
-    this.loadData();
+    // fix: DEV-036 · 从消息跳转时定位到指定待办
+    const todoId = AppStorage.get<string>('todo_detail_id');
+    if (todoId !== undefined && todoId.length > 0) {
+      hilog.info(0x0000, TAG, 'Navigate to todo: %{public}s', todoId);
+      // 读取后清除，避免重复处理
+      AppStorage.delete('todo_detail_id');
+      // 先加载数据，然后打开编辑对话框
+      this.loadDataAndEdit(todoId);
+    } else {
+      // 异步拉真实今/明待办（不阻塞首帧）
+      this.loadData();
+    }
     // R2：订阅 TODO_* 跨页刷新（其它页新增/完成/删除待办时重载本页）
     EventBus.on(EventBus.EventNames.TODO_CREATED, (data: Record<string, Object>) => {
       this.loadData();
@@ -201,6 +222,26 @@ export struct TimelineTodoView {
       this.tomorrowItems = [];
       this.progressAnimWidth = 0;
       hilog.error(0x0000, TAG, 'loadData failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** fix: DEV-036 · 从消息跳转时先加载数据，然后打开编辑对话框 */
+  private async loadDataAndEdit(todoId: string): Promise<void> {
+    try {
+      // 先加载数据
+      await this.loadData();
+      // 转换 ID 并打开编辑对话框
+      const id = parseInt(todoId, 10);
+      if (!isNaN(id)) {
+        // 延迟 300ms 确保数据已渲染到 UI
+        setTimeout(() => {
+          this.handleEdit(id);
+        }, 300);
+      } else {
+        hilog.error(0x0000, TAG, 'Invalid todo_detail_id: %{public}s', todoId);
+      }
+    } catch (err) {
+      hilog.error(0x0000, TAG, 'loadDataAndEdit failed: %{public}s', JSON.stringify(err));
     }
   }
 
@@ -280,6 +321,11 @@ export struct TimelineTodoView {
     return this.tomorrowItems.filter((item: TodoItemData) => this.matchesFilter(item));
   }
 
+  /** 已完成的待办（从今日+明日中筛选 completed=true 的项） */
+  private getCompletedItems(): TodoItemData[] {
+    return this.getAllItems().filter((item: TodoItemData) => item.completed);
+  }
+
   // ═══════════════════════════════════════════════════
   // 操作
   // ═══════════════════════════════════════════════════
@@ -307,6 +353,30 @@ export struct TimelineTodoView {
         animateTo({ duration: 350, curve: Curve.EaseOut }, () => {
           this.applyVmData();
         });
+
+        // DEV-035：如果指派了家人，发送消息
+        if (result.assignToMemberId > 0) {
+          try {
+            const member: FamilyMember | null = await FamilyMemberDao.queryById(result.assignToMemberId);
+            if (member && member.uid) {
+              const myUid: string | undefined = AppStorage.get<string>('current_user_uid');
+              const familyId: string | undefined = AppStorage.get<string>('current_family_id');
+
+              await FamilyMessageManager.getInstance().sendTodoMessage(
+                familyId ?? '',
+                myUid ?? '',
+                member.uid,
+                created.id.toString(),
+                result.title
+              );
+
+              hilog.info(0x0000, TAG, 'Todo assigned to %{public}s', member.nickname ?? 'member');
+            }
+          } catch (err) {
+            hilog.error(0x0000, TAG, 'sendTodoMessage failed: %{public}s', JSON.stringify(err));
+            // 不阻塞待办保存，只记录错误
+          }
+        }
       }
     } catch (err) {
       hilog.error(0x0000, TAG, 'add failed: %{public}s', JSON.stringify(err));
@@ -438,233 +508,197 @@ export struct TimelineTodoView {
   // ═══════════════════════════════════════════════════
 
   build() {
-    Stack({ alignContent: Alignment.BottomEnd }) {
-      Scroll() {
-        Column() {
-          // ══════════════════════════════════════════
-          // 页面头部：eyebrow + H1 + 完成数/总数
-          // ══════════════════════════════════════════
-          Row() {
-            Column() {
-              // eyebrow: TIMELINE AXIS + scope 图标
-              Row() {
-                SymbolGlyph($r('sys.symbol.scope'))
-                  .fontSize(11)
-                  .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
-                Text('TIMELINE AXIS')
-                  .fontSize(TYPO.eyebrow.size)
-                  .fontWeight(700)
-                  .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                  .opacity(0.6)
-                  .letterSpacing(2.5)
-                  .margin({ left: 4 })
-                  .attributeModifier(SKETCH_TITLE) // HUI-026：eyebrow 微标→猫啃什锦黑
-              }
-              .accessibilityText('时光轴待办')
-
-              // H1：时光轴待办
-              Text('时光轴待办')
-                .fontSize(TYPO.h1.size)
-                .fontWeight(TYPO.h1.weight)
-                .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-                .margin({ top: 4 })
-                .accessibilityLevel('no')
-                .attributeModifier(SKETCH_TITLE) // HUI-026：页面 H1→猫啃什锦黑
-            }
-            .alignItems(HorizontalAlign.Start)
-
-            Blank()
-
-            // 完成/总数（右对齐，mono 粗体）
-            Row() {
-              Text(this.getCompletedCount().toString())
-                .fontSize(15)
-                .fontFamily(FONT.monoExtraBold)
-                .fontWeight(900)
-                .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-              Text('/')
-                .fontSize(15)
-                .fontWeight(300)
-                .fontColor(this.tokens ? this.tokens.textTertiary : '#BDBDBD')
-                .opacity(0.4)
-              Text(this.getTotalCount().toString() + '项已毕')
-                .fontSize(13)
-                .fontFamily(FONT.monoBold)
-                .fontWeight(700)
-                .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                .opacity(0.7)
-            }
-            .accessibilityText('完成进度：' + this.getCompletedCount() +
-              ' / ' + this.getTotalCount() + ' 项')
-          }
-          .width('100%')
-          .padding({ left: 0, right: 0 })
-          .margin({ bottom: SPACING.sectionGap })
-
-          // ══════════════════════════════════════════
-          // 青进度卡（spring 填充 + mono 百分比）
-          // ══════════════════════════════════════════
-          if (this.getTotalCount() > 0) {
-            Column() {
-              Row() {
-                Row() {
-                  SymbolGlyph(IconMapper.CHECKIN_DONE)
-                    .fontSize(11)
-                    .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
-                  Text('践行总进度')
-                    .fontSize(TYPO.eyebrow.size)
-                    .fontWeight(700)
-                    .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-                    .opacity(0.5)
-                    .margin({ left: 4 })
-                    .attributeModifier(SKETCH_TITLE) // HUI-026：卡片 kicker→猫啃什锦黑
-                }
-
-                Blank()
-
-                // mono 百分比（numCard 字号）
-                Text(this.getProgressPercent().toString() + '%')
-                  .fontSize(TYPO.numCard.size)
-                  .fontFamily(FONT.monoExtraBold)
-                  .fontWeight(900)
-                  .fontColor(this.tokens ? this.tokens.primary : '#00C2B8')
-              }
-              .width('100%')
-              .margin({ bottom: 12 })
-
-              // 进度条 track（浅青底）
-              Row() {
-                Row()
-                  .height(8)
-                  .borderRadius(4)
-                  .width(this.progressAnimWidth.toString() + '%')
-                  .backgroundColor(this.tokens ? this.tokens.primary : '#00C2B8')
-                  .animation({
-                    duration: 800,
-                    curve: Curve.FastOutSlowIn,
-                    iterations: 1
-                  })
-              }
-              .width('100%')
-              .height(8)
-              .borderRadius(4)
-              .backgroundColor(this.tokens ? this.tokens.accent : '#E6F9F8')
-            }
-            .width('100%')
-            .borderRadius(RADIUS.cardMd)
-            .padding(SPACING.cardPadMd)
-            .backgroundColor(this.tokens ? this.tokens.bgCard : '#FAFAFA')
-            .border({
-              width: 1,
-              color: this.tokens ? this.tokens.border : '#E0E0E0'
-            })
-            .shadow({
-              radius: 8,
-              color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.06)',
-              offsetX: 0,
-              offsetY: 2
-            })
-            .margin({ bottom: SPACING.cardGap })
-          }
-
-          // ══════════════════════════════════════════
-          // 分类筛选 pill 横滑（7项：全部+6类）
-          // ══════════════════════════════════════════
-          Scroll() {
-            Row() {
-              ForEach(this.filterOptions, (opt: FilterOption) => {
-                Text(opt.label)
-                  .fontSize(10)
-                  .fontWeight(800)
-                  // HUI-037：筛选 pill 选中态文字→btnPrimaryText 白（配 btnPrimary 底），未选中→textSecondary
-                  .fontColor(this.activeFilter === opt.key ?
-                    (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF') :
-                    (this.tokens ? this.tokens.textSecondary : '#5A5A5A'))
-                  .opacity(this.activeFilter === opt.key ? 1.0 : 0.7)
-                  // HUI-041：筛选 pill 未选中底由死白 #FFFFFF 改读 surface token（浅色 #F7F7F7 / 深色 #242424），修深色白底浅灰字不可见
-                  .backgroundColor(this.activeFilter === opt.key ?
-                    (this.tokens ? this.tokens.btnPrimary : '#738A9C') :
-                    (this.tokens ? this.tokens.surface : '#FFFFFF'))
-                  .borderRadius(999)
-                  .padding({ left: 14, right: 14, top: 7, bottom: 7 })
-                  .border({
-                    width: this.activeFilter === opt.key ? 0 : 1,
-                    color: this.tokens ? this.tokens.border : '#E0E0E0'
-                  })
-                  .margin({ right: 6 })
-                  .onClick(() => {
-                    this.activeFilter = opt.key;
-                  })
-                  .attributeModifier(SKETCH_BODY) // HUI-026：分类筛选 chip→清松手写体2
-                  .accessibilityText(opt.label + (this.activeFilter === opt.key ? '，已选中' : ''))
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        // ══════════════════════════════════════════
+        // 顶部 Tab 切换栏（全部/我创建的/分配给我的）— 固定不滚动
+        // ══════════════════════════════════════════
+        Row() {
+          ForEach(this.tabOptions, (opt: FilterOption) => {
+            Text(opt.label)
+              .fontSize(TYPO.body.size)
+              .fontWeight(this.activeFilter === opt.key ? FontWeight.Bold : FontWeight.Normal)
+              .fontColor(this.activeFilter === opt.key ?
+                (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                (this.tokens ? this.tokens.textSecondary : '#666666'))
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .onClick(() => {
+                this.activeFilter = opt.key;
               })
-            }
-            .padding({ left: 0, right: 0 })
-          }
-          .scrollBar(BarState.Off)
-          .scrollable(ScrollDirection.Horizontal)
-          .margin({ bottom: SPACING.cardGap })
-
-          // ══════════════════════════════════════════
-          // 今日备忘分组卡
-          // ══════════════════════════════════════════
-          TodoList({
-            groupType: 'today',
-            groupTitle: '今日备忘',
-            items: this.getFilteredToday(),
-            onToggle: (id: number) => {
-              this.handleToggle(id);
-            },
-            onDelete: (id: number) => {
-              this.handleDelete(id);
-            },
-            onEdit: (id: number) => {
-              this.handleEdit(id);
-            },
-            onAdd: () => {
-              this.openAddDialog();
-            }
-          })
-            .margin({ bottom: SPACING.cardGap })
-
-          // ══════════════════════════════════════════
-          // 明日日程分组卡
-          // ══════════════════════════════════════════
-          TodoList({
-            groupType: 'tomorrow',
-            groupTitle: '明日日程',
-            items: this.getFilteredTomorrow(),
-            onToggle: (id: number) => {
-              this.handleToggle(id);
-            },
-            onDelete: (id: number) => {
-              this.handleDelete(id);
-            },
-            onEdit: (id: number) => {
-              this.handleEdit(id);
-            },
-            onAdd: () => {
-              this.openAddDialog();
-            }
+              .accessibilityText(opt.label + (this.activeFilter === opt.key ? '，已选中' : ''))
           })
         }
         .width('100%')
+        .padding({ left: SPACING.pageH, right: SPACING.pageH, top: SPACING.pageTop, bottom: 8 })
+        .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
+
+        // ══════════════════════════════════════════
+        // 可滚动内容区
+        // ══════════════════════════════════════════
+        Scroll() {
+          Column() {
+
+          // ══════════════════════════════════════════
+          // 今日待办分组
+          // ══════════════════════════════════════════
+          if (this.getFilteredToday().length > 0) {
+            Row() {
+              Text('今天 ' + DateUtils.today().replace(/-/g, '/').substring(5))
+                .fontSize(TYPO.body.size)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+            }
+            .width('100%')
+            .margin({ bottom: 8 })
+
+            TodoList({
+              groupType: 'today',
+              groupTitle: '今天',
+              items: this.getFilteredToday(),
+              onToggle: (id: number) => {
+                this.handleToggle(id);
+              },
+              onDelete: (id: number) => {
+                this.handleDelete(id);
+              },
+              onEdit: (id: number) => {
+                this.handleEdit(id);
+              },
+              onAdd: () => {
+                this.openAddDialog();
+              }
+            })
+              .margin({ bottom: SPACING.cardGap })
+          }
+
+          // ══════════════════════════════════════════
+          // 明日待办分组
+          // ══════════════════════════════════════════
+          if (this.getFilteredTomorrow().length > 0) {
+            Row() {
+              Text('明天')
+                .fontSize(TYPO.body.size)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+            }
+            .width('100%')
+            .margin({ bottom: 8 })
+
+            TodoList({
+              groupType: 'tomorrow',
+              groupTitle: '明天',
+              items: this.getFilteredTomorrow(),
+              onToggle: (id: number) => {
+                this.handleToggle(id);
+              },
+              onDelete: (id: number) => {
+                this.handleDelete(id);
+              },
+              onEdit: (id: number) => {
+                this.handleEdit(id);
+              },
+              onAdd: () => {
+                this.openAddDialog();
+              }
+            })
+          }
+
+          // ══════════════════════════════════════════
+          // 已完成分组
+          // ══════════════════════════════════════════
+          if (this.getCompletedItems().length > 0) {
+            Row() {
+              Text('已完成')
+                .fontSize(TYPO.body.size)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+            }
+            .width('100%')
+            .margin({ top: SPACING.cardGap, bottom: 8 })
+
+            TodoList({
+              groupType: 'completed',
+              groupTitle: '已完成',
+              items: this.getCompletedItems(),
+              onToggle: (id: number) => {
+                this.handleToggle(id);
+              },
+              onDelete: (id: number) => {
+                this.handleDelete(id);
+              },
+              onEdit: (id: number) => {
+                this.handleEdit(id);
+              },
+              onAdd: () => {
+                this.openAddDialog();
+              }
+            })
+          }
+
+          // 空态
+          if (this.getTotalCount() === 0) {
+            Column() {
+              Text('暂无待办')
+                .fontSize(TYPO.body.size)
+                .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
+                .margin({ top: 80 })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
+          }
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .constraintSize({ minHeight: '100%' })
         .padding({
           left: SPACING.pageH,
           right: SPACING.pageH,
-          top: SPACING.pageTop,
-          bottom: SPACING.pageBottom
+          top: SPACING.cardGap,
+          bottom: 80
         })
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+      .layoutWeight(1)
+      .align(Alignment.Top)
+      .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      } // 关闭外层 Column
 
-      // HUI-001：右下 FAB 加号按钮已移除（页面 3 个加号与卡片中间"添加待办"按钮重复，全部去除）。
-      //   原实现：56x56 圆钮 + IconMapper.ADD，onClick 调 this.openAddDialog()。
-      //   openAddDialog 保留（TodoList 空态"添加待办"按钮经 onAdd 回调仍调用）。
+      // ══════════════════════════════════════════
+      // 底部浮动新建按钮
+      // ══════════════════════════════════════════
+      Row() {
+        Button() {
+          Row() {
+            SymbolGlyph(IconMapper.PLUS)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor([this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF'])
+            Text('新建待办')
+              .fontSize(TYPO.body.size)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
+              .margin({ left: 6 })
+          }
+        }
+        .width('100%')
+        .height(48)
+        .borderRadius(24)
+        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+        .shadow({
+          radius: 12,
+          color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+          offsetX: 0,
+          offsetY: 4
+        })
+        .onClick(() => {
+          this.openAddDialog();
+        })
+        .accessibilityText('新建待办')
+      }
+      .width('100%')
+      .padding({ left: SPACING.pageH, right: SPACING.pageH, bottom: 100 })
     }
     .width('100%')
     .height('100%')

@@ -1,4 +1,12 @@
 // <!-- agentID: DEV-001 -->
+// Modified by: DEV-003 (T010: v5→v6 skeleton)
+// fix: DEV-006 · T013 推送与资料列：新表 push_token_cache + idx_push_token_user；account 补 avatar/gender/birthday/bio；
+//   family_member 补 avatar/gender/birthday（phone 建表语句已含，仅留守卫兜底）
+//   —— v5→v6 迁移段③ + ensurePushTokenCacheTable / ensureAccountProfileColumns 启动自愈双入口
+// fix: DEV-005 · T012 全局检索：FTS5 虚拟表 fts_search（v5→v6 迁移 + ensureFtsSearchTable 启动自愈双入口）
+//   + 分词器经 StoreConfig.tokenizer 探测配置（ICU 不可用则降级并写 AppStorage 'fts_fallback_to_like'）
+// fix: DEV-004 · T011 家庭待办字段：v5→v6 迁移填充 todo.from_uid / todo.is_family_todo + idx_todo_family / idx_todo_from_uid
+//   （ensureTodoFamilyColumns 启动自愈双入口，沿用 DEV-013 ensureTodoReminderColumns 范式）
 // fix: DEV-FAMILY · 家庭成员：新表 family_member + todo.assignee_member_id 指派列（v4→v5 迁移 + 启动自愈双入口，沿用 DEV-012 范式）
 // fix: DEV-013 · 待办提醒增强：todo 表自愈补列 due_date/due_time/location/custom_tags/remind_at/reminder_id（ensureTodoReminderColumns，沿用 category 自愈先例）
 // fix: DEV-012 · T-M01 日记「一天多篇」：新主表 diary_entry（date 无 UNIQUE）+ v3→v4 迁移（老 diary 数据拷入，原表保留闲置）
@@ -12,11 +20,27 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = 'DatabaseHelper';
+// fix: DEV-005 · T012 · 基础 StoreConfig（不含 tokenizer）——分词器由 openStoreWithTokenizer() 运行时探测后追加，
+// 同时充当「ICU 不可用 / 带 tokenizer 打库失败」两条降级分支的回退配置。
 const STORE_CONFIG: relationalStore.StoreConfig = {
   name: 'HuaweiDiary.db',
   securityLevel: relationalStore.SecurityLevel.S2,
   encrypt: false
 };
+
+// fix: DEV-005 · T012 · FTS5 全局检索虚拟表 DDL（架构 §4.3 v1.1 修正版口径）。
+// 🔴 两处与架构文档 SQL 示例的必要偏差（否则真机建表必失败 / 命中错行）：
+//   ① 禁写列类型：FTS5 规定 "It is an error to add types, constraints or PRIMARY KEY declarations to a
+//      CREATE VIRTUAL TABLE statement used to create an FTS5 table"（sqlite.org/fts5.html §1），
+//      架构示例中的 `source_table TEXT` 会被当成无法识别的列选项 → 建表报错，故此处只写列名。
+//   ② source_table / source_id 标 UNINDEXED：二者只是定位元数据，若参与全文索引，
+//      MATCH 'todo' 会命中全部 todo 来源行。UNINDEXED 列仍可 SELECT 取值与等值过滤（同步/删除逻辑不受影响）。
+// 🔴 分词器不写 tokenize=：由 StoreConfig.tokenizer 统一控制（.d.ts:414-420）。
+const DDL_CREATE_FTS_SEARCH: string =
+  'CREATE VIRTUAL TABLE IF NOT EXISTS fts_search USING fts5(' +
+  'source_table UNINDEXED, ' +
+  'source_id UNINDEXED, ' +
+  'content)';
 
 /**
  * DatabaseHelper - Singleton for RelationalStore lifecycle management
@@ -27,8 +51,8 @@ export class DatabaseHelper {
   private store: relationalStore.RdbStore | null = null;
   private initialized: boolean = false;
 
-  /** Current database version (DEV-DB 1→2: diary.title/mood + custom_emoji; DEV-AI-COMPANION 2→3: chat_message; DEV-012 3→4: diary_entry 一天多篇; DEV-FAMILY 4→5: family_member + todo.assignee_member_id) */
-  static readonly DATABASE_VERSION: number = 5;
+  /** Current database version (DEV-DB 1→2: diary.title/mood + custom_emoji; DEV-AI-COMPANION 2→3: chat_message; DEV-012 3→4: diary_entry 一天多篇; DEV-FAMILY 4→5: family_member + todo.assignee_member_id; DEV-003 5→6: 家庭待办互动字段准备) */
+  static readonly DATABASE_VERSION: number = 6;
 
   /**
    * diary_entry table DDL (v4, created by migrator + startup self-heal — NOT part of v1 baseline).
@@ -110,6 +134,20 @@ export class DatabaseHelper {
       is_logged_in INTEGER NOT NULL DEFAULT 0,
       login_time INTEGER,
       created_at INTEGER NOT NULL
+    )`;
+
+  /**
+   * fix: DEV-006 · T013 · push_token_cache 表 DDL（v5→v6 新增，非 v1 基线）。
+   * Push Kit token 本地缓存：登录前拿到 token 先落本地，登录后由 T031 补报到 CloudAccount.push_token（不得丢）。
+   * 口径与架构方案一致：user_id / push_token 均 NOT NULL（无 uid 或无 token 不入缓存），updated_at INTEGER 毫秒时间戳（§8.2）。
+   * 不建 UNIQUE：同一 uid 允许多设备/多次刷新留痕，读取端按 updated_at DESC 取最新（PushManager T030 负责收敛）。
+   */
+  private static readonly DDL_CREATE_PUSH_TOKEN_CACHE: string =
+    `CREATE TABLE IF NOT EXISTS push_token_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      push_token TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
     )`;
 
   /** All 10 table DDL statements */
@@ -267,7 +305,8 @@ export class DatabaseHelper {
     }
 
     try {
-      const store = await relationalStore.getRdbStore(context, STORE_CONFIG);
+      // fix: DEV-005 · T012 · 打库前先探测分词器并按结果配置 StoreConfig.tokenizer（架构 §4.3 v1.1）
+      const store = await DatabaseHelper.openStoreWithTokenizer(context);
       this.store = store;
       // DEV-DB 迁移铁律: PRAGMA 与建表全程 await（现有 fire-and-forget 已修正，保证基线在迁移前落地）
       await store.executeSql('PRAGMA journal_mode=WAL');
@@ -280,7 +319,12 @@ export class DatabaseHelper {
       await DatabaseHelper.ensureTodoReminderColumns(store); // fix: DEV-013 todo 提醒 6 列自愈补列（不受版本号 gate，幂等）
       await DatabaseHelper.ensureDiaryEntryTable(store); // fix: DEV-012 v4 主表自愈守卫（不受版本号 gate，幂等）
       await DatabaseHelper.ensureFamilyMemberSchema(store); // fix: DEV-FAMILY v5 表/列自愈守卫（不受版本号 gate，幂等）
+      await DatabaseHelper.ensureTodoFamilyColumns(store);  // fix: DEV-004 T011 todo 家庭待办 2 列自愈补列（不受版本号 gate，幂等）
       await DatabaseHelper.ensureAccountTable(store);      // DEV+HUI 登录态 account 表自愈守卫（不受版本号 gate，幂等）
+      await DatabaseHelper.ensureFtsSearchTable(store);    // fix: DEV-005 T012 fts_search FTS5 虚拟表自愈守卫（不受版本号 gate，幂等）
+      await DatabaseHelper.ensurePushTokenCacheTable(store); // fix: DEV-006 T013 push_token_cache 表+索引自愈守卫（不受版本号 gate，幂等）
+      // fix: DEV-006 T013 account/family_member 资料列自愈补列（必须排在 ensureAccountTable 之后：全新安装时 account 表由它创建）
+      await DatabaseHelper.ensureAccountProfileColumns(store);
       this.initialized = true;
       // fix: HUI-FRONTEND-1 · 唤醒 whenReady 等待者
       if (this.readyResolve) {
@@ -293,6 +337,48 @@ export class DatabaseHelper {
       const error = err as BusinessError;
       hilog.error(0x0000, TAG, 'Database initialization failed: %{public}s', error.message);
       throw new Error(`Database initialization failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * fix: DEV-005 · T012 · 分词器探测 + 打开数据库（架构 §4.3 v1.1 StoreConfig 方案，非建表 tokenize=）。
+   * 🔴 API 实证（唯一真相源：本地 SDK @ohos.data.relationalStore.d.ts，API 24 / SDK 6.1.1）：
+   *   L413-420  StoreConfig.tokenizer?: Tokenizer                            （@since 17）
+   *   L751-773  enum Tokenizer { NONE_TOKENIZER = 0, ICU_TOKENIZER = 1, CUSTOM_TOKENIZER = 2 }（0/1 @since 17，2 @since 18）
+   *   L9375     function isTokenizerSupported(tokenizer: Tokenizer): boolean  —— 命名空间级同步函数，非实例方法（@since 18）
+   * 降级链（任一环失败都不让启动崩）：ICU 不支持 → 探测抛错 → 带 tokenizer 打库失败，
+   *   统一退回基础 STORE_CONFIG 并置 AppStorage 'fts_fallback_to_like' = true，供 T081 搜索模块改走多表 LIKE。
+   * ⚠️ AppStorage 是全局对象，禁 import（PROJECT_SPEC §8.3 ②：从 @kit.ArkUI 导入会报 'AppStorage' is not exported）。
+   * 口径：ICU 可用 → ICU_TOKENIZER；不可用 → 显式 NONE_TOKENIZER（T012 任务清单明文要求，不留空）。
+   */
+  private static async openStoreWithTokenizer(context: Context): Promise<relationalStore.RdbStore> {
+    let icuSupported: boolean = false;
+    try {
+      icuSupported = relationalStore.isTokenizerSupported(relationalStore.Tokenizer.ICU_TOKENIZER);
+    } catch (err) {
+      const error = err as BusinessError;
+      icuSupported = false;
+      hilog.warn(0x0000, TAG, 'isTokenizerSupported threw, treat as unsupported: %{public}s', error.message);
+    }
+    hilog.info(0x0000, TAG, 'FTS ICU tokenizer supported: %{public}s', icuSupported ? 'true' : 'false');
+    // 探测结论先落标记（下方打库失败分支会再覆写为 true）；不支持时搜索层走多表 LIKE，FTS 表仍照建（整词匹配可用）
+    AppStorage.setOrCreate<boolean>('fts_fallback_to_like', !icuSupported);
+    const ftsConfig: relationalStore.StoreConfig = {
+      name: STORE_CONFIG.name,
+      securityLevel: STORE_CONFIG.securityLevel,
+      encrypt: false,
+      tokenizer: icuSupported
+        ? relationalStore.Tokenizer.ICU_TOKENIZER
+        : relationalStore.Tokenizer.NONE_TOKENIZER
+    };
+    try {
+      return await relationalStore.getRdbStore(context, ftsConfig);
+    } catch (err) {
+      const error = err as BusinessError;
+      // 老库（v5 建库时无 tokenizer）若拒绝新增的 tokenizer 配置项，不能让启动挂掉：退回基础配置 + 标记降级
+      hilog.error(0x0000, TAG, 'Open with tokenizer failed, fallback to plain config: %{public}s', error.message);
+      AppStorage.setOrCreate<boolean>('fts_fallback_to_like', true);
+      return await relationalStore.getRdbStore(context, STORE_CONFIG);
     }
   }
 
@@ -350,6 +436,9 @@ export class DatabaseHelper {
       }
       if (oldVersion < 5) {
         await DatabaseHelper.migrateV4ToV5(store);   // fix: DEV-FAMILY v4→v5: family_member + todo.assignee_member_id（每条 DDL 逐条 await）
+      }
+      if (oldVersion < 6) {
+        await DatabaseHelper.migrateV5ToV6(store);   // DEV-003 v5→v6: 家庭待办互动字段准备（每条 DDL 逐条 await）
       }
       // 全部 DDL 落地后才写版本（原子性红线；值恒 >0）
       store.version = DatabaseHelper.DATABASE_VERSION;  // .d.ts:4515
@@ -437,6 +526,156 @@ export class DatabaseHelper {
   private static async migrateV4ToV5(store: relationalStore.RdbStore): Promise<void> {
     await DatabaseHelper.ensureFamilyMemberSchema(store);
     hilog.info(0x0000, TAG, 'v4->v5 DDL applied');
+  }
+
+  /**
+   * DEV-003 · v5 → v6 migration: 家庭待办互动字段准备（T010 迁移骨架）。
+   * Every statement awaited (原子性红线)；全部幂等，崩溃自愈重跑安全。
+   * 分段结构（后续任务按段追加，勿打散）：
+   *   ① T011 todo 家庭字段（from_uid / is_family_todo + 两个索引）—— 已填充，实现见 ensureTodoFamilyColumns
+   *   ② T012 FTS 全局检索表（fts_search）—— 已填充，实现见 ensureFtsSearchTable
+   *   ③ T013 push_token_cache 表 + account/family_member 资料列 —— 已填充，
+   *      实现见 ensurePushTokenCacheTable / ensureAccountProfileColumns
+   */
+  private static async migrateV5ToV6(store: relationalStore.RdbStore): Promise<void> {
+    // ① fix: DEV-004 · T011 todo 家庭待办字段（与 ensureTodoFamilyColumns 共用实现，双入口范式）
+    await DatabaseHelper.ensureTodoFamilyColumns(store);
+    // ② fix: DEV-005 · T012 FTS5 全局检索表（与 ensureFtsSearchTable 共用实现，双入口范式）
+    await DatabaseHelper.ensureFtsSearchTable(store);
+    // ③ fix: DEV-006 · T013 push_token_cache 表 + account/family_member 资料列（共用自愈实现，双入口范式）
+    await DatabaseHelper.ensurePushTokenCacheTable(store);
+    await DatabaseHelper.ensureAccountProfileColumns(store);
+    hilog.info(0x0000, TAG, 'v5->v6 DDL applied');
+  }
+
+  /**
+   * fix: DEV-004 · T011 · todo 家庭待办字段自愈补列（幂等，自愈安全）。
+   * 由 migrateV5ToV6 与 initialize 启动自愈双入口调用（不受 store.version gate，
+   * 防「version 已写到 6 但列缺失」的病态库在 TodoDao 读写时崩溃；沿用 DEV-013 ensureTodoReminderColumns 范式）。
+   * 列口径与 TodoItem 模型一一对应：
+   *   from_uid TEXT — 可空（null=本人创建的个人待办）；
+   *   is_family_todo INTEGER DEFAULT 0 — 0=个人 1=家庭互动待办。
+   * ALTER 用 columnExists PRAGMA 守卫（SQLite 无 ADD COLUMN IF NOT EXISTS）；CREATE INDEX IF NOT EXISTS 本身幂等。
+   */
+  private static async ensureTodoFamilyColumns(store: relationalStore.RdbStore): Promise<void> {
+    const hasFromUid: boolean = await DatabaseHelper.columnExists(store, 'todo', 'from_uid');
+    if (!hasFromUid) {
+      await store.executeSql('ALTER TABLE todo ADD COLUMN from_uid TEXT');
+      hilog.info(0x0000, TAG, 'Self-heal: added todo.from_uid');
+    }
+    const hasFamilyTodo: boolean = await DatabaseHelper.columnExists(store, 'todo', 'is_family_todo');
+    if (!hasFamilyTodo) {
+      await store.executeSql('ALTER TABLE todo ADD COLUMN is_family_todo INTEGER DEFAULT 0');
+      hilog.info(0x0000, TAG, 'Self-heal: added todo.is_family_todo');
+    }
+    // 家庭待办筛选 / 发送人反查索引（IF NOT EXISTS 幂等）
+    await store.executeSql('CREATE INDEX IF NOT EXISTS idx_todo_family ON todo(is_family_todo)');
+    await store.executeSql('CREATE INDEX IF NOT EXISTS idx_todo_from_uid ON todo(from_uid)');
+  }
+
+  /**
+   * fix: DEV-005 · T012 · fts_search FTS5 虚拟表自愈守卫（幂等，自愈安全）。
+   * 由 migrateV5ToV6 与 initialize 启动自愈双入口调用（不受 store.version gate，
+   * 防「version 已写到 6 但虚拟表缺失」的病态库在搜索时崩溃；沿用 DEV-012 ensureDiaryEntryTable 范式）。
+   * CREATE VIRTUAL TABLE IF NOT EXISTS 本身幂等；虚拟表无需额外索引（FTS5 自带倒排索引）。
+   * 🔴 建表失败不外抛：fts_search 是可随时重建的辅助索引而非用户数据，外抛会让 migrateV5ToV6 整段回滚
+   *    （连带 T011 的 todo 列一起丢），得不偿失。故降级为置 'fts_fallback_to_like' = true，
+   *    搜索层改走 LIKE，启动不崩（对齐 T012 验收："不支持分词器的设备启动不崩溃且标记为 true"）。
+   */
+  private static async ensureFtsSearchTable(store: relationalStore.RdbStore): Promise<void> {
+    try {
+      await store.executeSql(DDL_CREATE_FTS_SEARCH);
+      hilog.info(0x0000, TAG, 'fts_search virtual table ready');
+    } catch (err) {
+      const error = err as BusinessError;
+      AppStorage.setOrCreate<boolean>('fts_fallback_to_like', true);
+      hilog.error(0x0000, TAG, 'fts_search create failed, search degrades to LIKE: %{public}s', error.message);
+    }
+  }
+
+  /**
+   * fix: DEV-006 · T013 · push_token_cache 表 + user_id 索引自愈守卫（幂等，自愈安全）。
+   * 由 migrateV5ToV6 与 initialize 启动自愈双入口调用（不受 store.version gate，
+   * 防「version 已写到 6 但表缺失」的病态库在 PushManager(T030) 写 token 时崩溃；沿用 DEV-012 ensureDiaryEntryTable 范式）。
+   * CREATE TABLE / CREATE INDEX 均带 IF NOT EXISTS，本身幂等；禁 DROP/RENAME（迁移铁律）。
+   */
+  private static async ensurePushTokenCacheTable(store: relationalStore.RdbStore): Promise<void> {
+    await store.executeSql(DatabaseHelper.DDL_CREATE_PUSH_TOKEN_CACHE);
+    await store.executeSql('CREATE INDEX IF NOT EXISTS idx_push_token_user ON push_token_cache(user_id)');
+  }
+
+  /**
+   * fix: DEV-006 · T013 · account / family_member 用户资料列自愈补列（幂等，自愈安全）。
+   * 由 migrateV5ToV6 与 initialize 启动自愈双入口调用（不受 store.version gate，
+   * 防「version 已写到 6 但列缺失」的病态库在 AccountDao/FamilyMemberDao 读写时崩溃；
+   * 沿用 DEV-013 ensureTodoReminderColumns / DEV-004 ensureTodoFamilyColumns 范式）。
+   * 列口径（USER_DATA_SUPPLEMENT.md §数据库变更，全部 TEXT 可空 → 对应模型 string | null = null）：
+   *   account:       avatar TEXT / gender TEXT / birthday TEXT / bio TEXT
+   *   family_member: avatar TEXT / gender TEXT / birthday TEXT
+   * ⚠️ family_member.phone：DDL_CREATE_FAMILY_MEMBER 建表语句**已含 phone TEXT**（v5 起就有），
+   *    FamilyMemberDao.insert/update/rowToMember 也早已读写该列 —— 即 T013 描述里「遗漏 phone」对本地 RDB 不成立
+   *    （该遗漏成立于云端 schema，属 T017 范围）。此处仍保留 columnExists 守卫兜底：健康库上恒为 no-op，
+   *    仅对「表由更早期残缺 DDL 建出」的病态库补列，不会重复 ADD（SQLite 无 ADD COLUMN IF NOT EXISTS）。
+   * ALTER 逐条 await（原子性红线）；每条 ALTER 前必过 columnExists PRAGMA 守卫，重复启动不报错。
+   * 🔴 tableExists 前置守卫（必要，非冗余）：account 表不属 v1 基线，由 initialize 的 ensureAccountTable 建，
+   *    而该调用排在 migrate() **之后** —— 全新安装走迁移链时 account 表尚不存在，
+   *    此时 PRAGMA table_info(account) 返回空集（不报错）会误判「列缺失」→ ALTER 报 no such table → 整段 v5→v6 回滚。
+   *    故表不存在则跳过该段；同一次启动内 initialize 末尾的自愈入口（排在 ensureAccountTable 之后）会补齐。
+   */
+  private static async ensureAccountProfileColumns(store: relationalStore.RdbStore): Promise<void> {
+    // ① account 资料 4 列（表存在才补，见上方 tableExists 说明；family_member 段不受本段跳过影响）
+    const accountReady: boolean = await DatabaseHelper.tableExists(store, 'account');
+    if (accountReady) {
+      const hasAvatar: boolean = await DatabaseHelper.columnExists(store, 'account', 'avatar');
+      if (!hasAvatar) {
+        await store.executeSql('ALTER TABLE account ADD COLUMN avatar TEXT');
+        hilog.info(0x0000, TAG, 'Self-heal: added account.avatar');
+      }
+      const hasGender: boolean = await DatabaseHelper.columnExists(store, 'account', 'gender');
+      if (!hasGender) {
+        await store.executeSql('ALTER TABLE account ADD COLUMN gender TEXT');
+        hilog.info(0x0000, TAG, 'Self-heal: added account.gender');
+      }
+      const hasBirthday: boolean = await DatabaseHelper.columnExists(store, 'account', 'birthday');
+      if (!hasBirthday) {
+        await store.executeSql('ALTER TABLE account ADD COLUMN birthday TEXT');
+        hilog.info(0x0000, TAG, 'Self-heal: added account.birthday');
+      }
+      const hasBio: boolean = await DatabaseHelper.columnExists(store, 'account', 'bio');
+      if (!hasBio) {
+        await store.executeSql('ALTER TABLE account ADD COLUMN bio TEXT');
+        hilog.info(0x0000, TAG, 'Self-heal: added account.bio');
+      }
+    } else {
+      hilog.info(0x0000, TAG, 'account table absent, defer its profile columns to startup self-heal');
+    }
+    // ② family_member 资料 3 列（+ phone 兜底守卫，见上方注释）
+    // 表由 migrateV4ToV5 / ensureFamilyMemberSchema 先建（迁移链顺序保证），此处同样加 tableExists 兜底
+    const memberReady: boolean = await DatabaseHelper.tableExists(store, 'family_member');
+    if (!memberReady) {
+      hilog.info(0x0000, TAG, 'family_member table absent, defer its profile columns to startup self-heal');
+      return;
+    }
+    const hasMemberAvatar: boolean = await DatabaseHelper.columnExists(store, 'family_member', 'avatar');
+    if (!hasMemberAvatar) {
+      await store.executeSql('ALTER TABLE family_member ADD COLUMN avatar TEXT');
+      hilog.info(0x0000, TAG, 'Self-heal: added family_member.avatar');
+    }
+    const hasMemberGender: boolean = await DatabaseHelper.columnExists(store, 'family_member', 'gender');
+    if (!hasMemberGender) {
+      await store.executeSql('ALTER TABLE family_member ADD COLUMN gender TEXT');
+      hilog.info(0x0000, TAG, 'Self-heal: added family_member.gender');
+    }
+    const hasMemberBirthday: boolean = await DatabaseHelper.columnExists(store, 'family_member', 'birthday');
+    if (!hasMemberBirthday) {
+      await store.executeSql('ALTER TABLE family_member ADD COLUMN birthday TEXT');
+      hilog.info(0x0000, TAG, 'Self-heal: added family_member.birthday');
+    }
+    const hasMemberPhone: boolean = await DatabaseHelper.columnExists(store, 'family_member', 'phone');
+    if (!hasMemberPhone) {
+      await store.executeSql('ALTER TABLE family_member ADD COLUMN phone TEXT');
+      hilog.info(0x0000, TAG, 'Self-heal: added family_member.phone');
+    }
   }
 
   /**

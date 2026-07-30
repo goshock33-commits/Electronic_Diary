@@ -339,7 +339,7 @@ struct SecurityLockPage {
     .onTouch((event: TouchEvent) => reportPawTouch(event))
 
     // HUI-001: 猫爪视觉层（同树最上层子节点，整层 None 不参与命中，不挡交互）
-    PawOverlayLayer()
+    // PawOverlayLayer()
     }
     .width('100%')
     .height('100%')

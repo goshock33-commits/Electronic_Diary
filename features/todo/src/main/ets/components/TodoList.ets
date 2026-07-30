@@ -46,8 +46,8 @@ export struct TodoList {
           .fontSize(10)
           .fontFamily(FONT.monoBold)
           .fontWeight(900)
-          .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-          .backgroundColor(this.tokens ? this.tokens.divider : '#F0F0F0')
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
+          .backgroundColor(this.tokens ? this.tokens.divider : '#EEF0F4')
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 2, bottom: 2 })
           .margin({ left: 8 })
@@ -61,14 +61,14 @@ export struct TodoList {
               SymbolGlyph(IconMapper.PLUS)
                 .fontSize(ICON.plus)
                 .fontWeight(FontWeight.Bold)
-                .fontColor([this.tokens ? this.tokens.btnPrimary : '#738A9C'])
+                .fontColor([this.tokens ? this.tokens.btnPrimary : '#0A59F7'])
             }
             .width(ICON.plusRing)
             .height(ICON.plusRing)
             .borderRadius(ICON.plusRing / 2)
             .border({
               width: ICON.ringStroke,
-              color: this.tokens ? this.tokens.btnPrimary : '#738A9C'
+              color: this.tokens ? this.tokens.btnPrimary : '#0A59F7'
             })
           }
           .width(48)
@@ -152,10 +152,10 @@ export struct TodoList {
     // HUI-001（三轮）：左滑已拆，clip 保留（无害）——抖动 ±1.6° 顶点位移约 4vp，条目在分组卡
     //   padding 内不会被裁；clip 兼防其他内容溢出描边圆角（API24 common.d.ts:26622）。
     .clip(true)
-    .backgroundColor(this.tokens ? this.tokens.bgCard : '#FAFAFA')
+    .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
     .border({
       width: 1,
-      color: this.tokens ? this.tokens.border : '#E0E0E0'
+      color: this.tokens ? this.tokens.border : '#E0E6ED'
     })
     .accessibilityGroup(true)
   }

@@ -89,6 +89,24 @@ export class VoiceReminder extends cloudDatabase.DatabaseObject {
   }
 }
 
+// agentID: DEV-013
+// T032: 家庭消息流 CloudDB 对象类型（对应 FamilyMessage 云表）
+export class CloudFamilyMessage extends cloudDatabase.DatabaseObject {
+  message_id: string = '';
+  family_id: string = '';
+  from_uid: string = '';
+  to_uid: string = '';
+  type: string = 'todo';
+  content: string = '';
+  reference_id: string = '';
+  read_status: number = 0;
+  created_at: number = 0;
+
+  naturalbase_ClassName(): string {
+    return 'FamilyMessage';
+  }
+}
+
 // ===================== CloudDbService Singleton =====================
 
 export class CloudDbService {
@@ -399,6 +417,48 @@ export class CloudDbService {
     hilog.info(0x0000, TAG, 'queryPendingVoiceReminders: to_uid=%{public}s count=%{public}d',
       toUid, results.length);
     return results;
+  }
+
+  // ===================== FamilyMessage CRUD (agentID: DEV-013 · T032) =====================
+
+  async upsertFamilyMessage(message: CloudFamilyMessage): Promise<number> {
+    const z = this.getZone();
+    const count = await z.upsert(message);
+    hilog.info(0x0000, TAG, 'upsertFamilyMessage: message_id=%{public}s count=%{public}d',
+      message.message_id, count);
+    this.notifySync();
+    return count;
+  }
+
+  async deleteFamilyMessage(message: CloudFamilyMessage): Promise<number> {
+    const z = this.getZone();
+    const count = await z.delete(message);
+    hilog.info(0x0000, TAG, 'deleteFamilyMessage: message_id=%{public}s count=%{public}d',
+      message.message_id, count);
+    this.notifySync();
+    return count;
+  }
+
+  async queryMyFamilyMessages(toUid: string): Promise<CloudFamilyMessage[]> {
+    const z = this.getZone();
+    const query = new cloudDatabase.DatabaseQuery(CloudFamilyMessage);
+    query.equalTo('to_uid', toUid);
+    query.orderByDesc('created_at');
+    const results = await z.query(query);
+    hilog.info(0x0000, TAG, 'queryMyFamilyMessages: to_uid=%{public}s count=%{public}d',
+      toUid, results.length);
+    return results;
+  }
+
+  async queryFamilyMessageById(messageId: string): Promise<CloudFamilyMessage | null> {
+    const z = this.getZone();
+    const query = new cloudDatabase.DatabaseQuery(CloudFamilyMessage);
+    query.equalTo('message_id', messageId);
+    const results = await z.query(query);
+    if (results.length > 0) {
+      return results[0];
+    }
+    return null;
   }
 
   // ===================== Batch Operations =====================

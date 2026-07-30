@@ -1,22 +1,20 @@
 // <!-- agentID: HUI-007 -->
 // fix: HUI-016
 // fix: HUI-FRONTEND
-// 页面：统计页 — 黑白手绘风格
-// 关联任务：T-SKETCH 统计页黑白手绘风格
+// 页面：统计页 — HarmonyOS 蓝白卡片风格
+// 关联任务：T-SKETCH 统计页（已迁移至蓝白卡片主题）
 // 开发范式：ArkTS 声明式开发范式 (Stage 模型)
 // 崩溃防范：PROJECT_SPEC §9.4 @StorageLink tokens 全判空
 // HUI-040：深色模式 P0 修复——dayDot/分隔线/周期 pill 前景死值全部 token 化（darkmode_audit 问题2）
-// HUI-001：手绘换回系统图标——Header CHART 眉题图标与 3 张数据卡头部小图标 SketchIcon→SymbolGlyph（IconMapper 已验证常量）；
-//   对号保留手绘：完成待办卡(CHECKMARK, 30vp) 与 dayDot 已签勾选(CHECKMARK, 16vp) 两处 SketchIcon 一行不动。
+// 改版：全部 SketchIcon→SymbolGlyph（IconMapper 已验证常量）；手绘边框→均匀细边框读 token；硬编码色→主题 token。
 // HUI-001：顶部 2×2 数据卡整块替换为 TrendLineChart 四线趋势曲线图（"笔画出来"入场动画，图例带总数承接原卡数字；
 //   数据走 DEV-004 契约 StatisticsViewModel.getDailySeries(7|30)，loadStats/事件订阅刷新时同步刷新并重播画线）。
 
 import type { ThemeColorTokens } from '@ohos/shared';
-import { IconMapper, RADIUS, SPACING, TYPO, FONT, EventBus, getThemeManager } from '@ohos/shared';
-// HUI-016 · 批次1 T007：SketchIcon/SketchIconType 已迁入 shared，改从 @ohos/shared 引入（其余仍在 features/statistics）
-import { SketchIcon, SketchIconType } from '@ohos/shared';
-import { TodoProgressBar, StatisticsViewModel, TrendLineChart, StatsPeriod } from 'features/statistics';
-import type { TrendChartData, MonthStats } from 'features/statistics';
+import { IconMapper, RADIUS, SPACING, TYPO, FONT, ICON, EventBus, getThemeManager } from '@ohos/shared';
+import { TodoProgressBar, StatisticsViewModel, TrendLineChart, StatsPeriod } from 'features_statistics';
+import type { TrendChartData, MonthStats } from 'features_statistics';
+import { router } from '@kit.ArkUI';
 
 interface DayDot {
   dateStr: string;
@@ -36,6 +34,7 @@ interface MonthStatsData {
 
 enum PageLoadState { LOADING = 'loading', LOADED = 'loaded', ERROR = 'error', EMPTY = 'empty' }
 
+@Entry
 @Component
 export struct StatisticsPage {
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
@@ -133,13 +132,22 @@ export struct StatisticsPage {
 
   // HUI-001：拉取四线逐日序列（DEV-004 契约 getDailySeries(7|30)，Index 已导出）。
   //   成功后版本号 +1 → TrendLineChart @Watch 重播画线；失败保持旧数据，不打断页面其余加载。
+  // fix: DEV-010 · 修复模块名与类型错误——显式声明 getDailySeries 返回类型避免 any 推断
+  // fix: DEV-011 · 修复结构化类型错误（arkts-no-structural-typing Line 138）
+  // fix: DEV-012 · TrendChartData 类型实例化修正——interface 不能 new，直接用对象字面量
   private async loadChartSeries(): Promise<void> {
     try {
       const s = await this.statsVm.getDailySeries(this.chartDays);
       const mapped: TrendChartData = {
-        dates: s.dates, checkIn: s.checkIn, diary: s.diary, pomodoro: s.pomodoro, todoDone: s.todoDone,
-        totalCheckInDays: s.totalCheckInDays, totalDiary: s.totalDiary,
-        totalPomodoro: s.totalPomodoro, totalTodoDone: s.totalTodoDone
+        dates: s.dates,
+        checkIn: s.checkIn,
+        diary: s.diary,
+        pomodoro: s.pomodoro,
+        todoDone: s.todoDone,
+        totalCheckInDays: s.totalCheckInDays,
+        totalDiary: s.totalDiary,
+        totalPomodoro: s.totalPomodoro,
+        totalTodoDone: s.totalTodoDone
       };
       this.chartSeries = mapped;
       this.chartVersion = this.chartVersion + 1;
@@ -191,30 +199,31 @@ export struct StatisticsPage {
     Column() {
       if (d.status === 'done') {
         Stack() {
-          Circle().width(32).height(32).fill('#00C2B8')
-            .stroke('#00C2B8').strokeWidth(1)
-          SketchIcon({ iconType: SketchIconType.CHECKMARK, iconSize: 16,
-            strokeColor: '#FFFFFF' })
+          Circle().width(32).height(32).fill(this.tokens ? this.tokens.primary : '#0A59F7')
+            .stroke(this.tokens ? this.tokens.primary : '#0A59F7').strokeWidth(1)
+          SymbolGlyph(IconMapper.CHECKMARK)
+            .fontSize(16)
+            .fontColor([this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF'])
         }.width(32).height(32)
       } else if (d.status === 'today') {
         Stack() {
           Circle().width(32).height(32).fill(Color.Transparent)
             // HUI-040：墨色死值 #000000 → 读 token／fix: HUI-016 内联化
-            .stroke(this.tokens ? this.tokens.textPrimary : '#000000').strokeWidth(1.5).strokeDashArray([4, 3])
+            .stroke(this.tokens ? this.tokens.textPrimary : '#1A1A1A').strokeWidth(1.5).strokeDashArray([4, 3])
           Text(d.dayNum).fontFamily(FONT.monoBold).fontSize(TYPO.eyebrow.size)
-            .fontColor(this.tokens ? this.tokens.textPrimary : '#000000')
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
         }.width(32).height(32)
       } else {
         Stack() {
           Circle().width(32).height(32).fill(Color.Transparent)
             // HUI-040：浅灰死值 #CCCCCC → 读 token（border 弱描边 / textTertiary 弱文字）／fix: HUI-016 内联化
-            .stroke(this.tokens ? this.tokens.border : '#000000').strokeWidth(1.5).strokeDashArray([4, 4])
+            .stroke(this.tokens ? this.tokens.border : '#E0E6ED').strokeWidth(1.5).strokeDashArray([4, 4])
           Text(d.dayNum).fontFamily(FONT.mono).fontSize(TYPO.eyebrow.size)
-            .fontColor(this.tokens ? this.tokens.textTertiary : '#888888')
+            .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
         }.width(32).height(32)
       }
       Text(d.dateStr)
-        .fontSize(TYPO.eyebrow.size).fontColor(this.tokens ? this.tokens.textTertiary : '#888888')
+        .fontSize(TYPO.eyebrow.size).fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
         .fontFamily(FONT.mono).margin({ top: 6 }).textAlign(TextAlign.Center)
     }
     .layoutWeight(1)
@@ -223,35 +232,38 @@ export struct StatisticsPage {
 
   @Builder dotLineSeparator() {
     // HUI-040：分隔线死值 #CCCCCC → 读 token border／fix: HUI-016 内联化
-    Divider().width('100%').height(1.5).color(this.tokens ? this.tokens.border : '#000000')
+    Divider().width('100%').height(1.5).color(this.tokens ? this.tokens.border : '#E0E6ED')
       .margin({ top: 4, bottom: 8 })
   }
 
   build() {
     Scroll() {
       Column() {
-        // ─── Header ───
-        Column() {
-          Row() {
-            // HUI-001 · 手绘换回系统图标：Header 眉题小图标 SketchIcon(CHART)→SymbolGlyph(IconMapper.CHART_BAR)。
-            //   本地全量图标库无任何 chart_* 图标（grep 0 命中），CHART_BAR 为既有降级常量 star_fill（库L257，
-            //   UX-001 §3.2 统计图表备选），与探索页统计分段同源。fontColor 内联读 token 同原 strokeColor 语义。
-            SymbolGlyph(IconMapper.CHART_BAR)
-              .fontSize(16)
-              .fontColor([this.tokens ? this.tokens.textPrimary : '#000000'])
-              .margin({ right: 6 })
-            Text('DATA STATISTICS')
-              .fontSize(TYPO.eyebrow.size).fontWeight(TYPO.eyebrow.weight)
-              .fontColor(this.tokens ? this.tokens.textSecondary : '#000000')
-              .opacity(0.6).letterSpacing(3)
+        // ─── 顶部导航栏（返回按钮 + 标题）───
+        Row() {
+          Button() {
+            SymbolGlyph(IconMapper.BACK)
+              .fontSize(ICON.navBack)
+              .fontWeight(FontWeight.Bold)
+              .fontColor([this.tokens ? this.tokens.textPrimary : '#1A1A1A'])
           }
-          Text('打卡统计')
-            .fontSize(TYPO.h1.size).fontWeight(TYPO.h1.weight)
-            .fontFamily(FONT.sketchTitle + ', HarmonyOS Sans, sans-serif')
-            .fontColor(this.tokens ? this.tokens.textPrimary : '#000000')
-            .width('100%').margin({ top: 4 })
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => router.back())
+          .accessibilityText('返回')
+
+          Text('统计')
+            .fontSize(TYPO.cardTitle.size)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+            .margin({ left: 8 })
         }
-        .width('100%').alignItems(HorizontalAlign.Start).margin({ bottom: SPACING.sectionGap })
+        .width('100%')
+        .height(56)
+        .padding({ left: SPACING.pageH, right: SPACING.pageH })
+        .alignItems(VerticalAlign.Center)
 
         // ─── Zone A: 四线趋势曲线图（HUI-001：原 2×2 数据卡整块替换；7/30 切档回调重拉数据后重播画线）───
         TrendLineChart({
@@ -270,7 +282,7 @@ export struct StatisticsPage {
           Text('近七日签到轨迹')
             .fontSize(TYPO.sectionTitle.size).fontWeight(TYPO.sectionTitle.weight)
             .fontFamily(FONT.sketchTitle + ', HarmonyOS Sans, sans-serif')
-            .fontColor(this.tokens ? this.tokens.textPrimary : '#000000')
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
             .width('100%').margin({ bottom: SPACING.cardGap })
           Row({ space: 0 }) {
             ForEach(this.sevenDays, (d: DayDot) => { this.dayDot(d) })
@@ -279,7 +291,7 @@ export struct StatisticsPage {
         .width('100%').borderRadius(RADIUS.card).padding(SPACING.cardPadLg)
         .backgroundColor(this.tokens ? this.tokens.surface : '#FFFFFF')
         // HUI-032：不均匀加粗手绘边框 → 均匀细边框读 token，与其他页面卡片统一
-        .border({ width: 1, color: this.tokens ? this.tokens.border : '#CCCCCC' })
+        .border({ width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
         .margin({ top: SPACING.sectionGap })
 
         // ─── Zone C: 待办进度 ───
@@ -292,7 +304,7 @@ export struct StatisticsPage {
       .padding({ left: SPACING.pageH, right: SPACING.pageH, top: SPACING.pageTop })
     }
     .width('100%').height('100%')
-    .backgroundColor(this.tokens ? this.tokens.bg : '#FFFFFF')
+    .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
     .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
     // fix: HUI-FRONTEND — F6：本页为 Tab/分段常驻 @Component（无 onPageShow 生命周期），
     //   用可见性回调等价实现「页面重新显示时重拉数据」：切回本段/本 Tab 时 isVisible=true → loadStats

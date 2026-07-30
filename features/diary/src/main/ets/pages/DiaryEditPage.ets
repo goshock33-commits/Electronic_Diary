@@ -11,9 +11,9 @@
 // 关联计划：PLN-003 P2-06（日记编辑页 + 5 心情选择器）
 // Skill 参考：frontend-design / ui-ux-pro-max / brainstorming
 // 开发范式：ArkTS 声明式开发范式
-// 复刻要点：标题输入(placeholder 灰) + 正文 textarea(青 focus ring #00C2B8/20 + RADIUS.item)
+// 复刻要点：标题输入(placeholder 灰) + 正文 textarea(青 focus ring #0A59F7/20 + RADIUS.item)
 //           + 5 心情选择器(水平 5 圆形 mood 图标；选中白底 + scale1.05 + 青字 + 青浅底 RADIUS.input)
-//           +「保存时光」全圆主色按钮(borderRadius 22，主色 #00C2B8)。
+//           +「保存时光」全圆主色按钮(borderRadius 22，主色 #0A59F7)。
 // 令牌驱动：圆角 RADIUS、间距 SPACING、字号字重 TYPO，均引用 @ohos/shared。
 // 崩溃防范（PROJECT_SPEC §9）：mood 图标 $r() 不写字段初值，aboutToAppear 中赋值（§9.3）；@StorageLink 判空。
 // 图标合规（PROJECT_SPEC §10）：仅用 IconMapper 已验证 sys.symbol.*；本文件 0 emoji。
@@ -30,8 +30,8 @@ import { promptAction } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 
-// 青 focus ring（#00C2B8 @ 20%），UX-001 §6.8 编辑 textarea focus ring
-const CYAN_FOCUS_RING: string = 'rgba(0,194,184,0.20)';
+// 青 focus ring（#0A59F7 @ 20%），UX-001 §6.8 编辑 textarea focus ring
+const CYAN_FOCUS_RING: string = 'rgba(10,89,247,0.20)';
 
 // ═══ HUI-001 · ghost text AI 内联补全常量 ═══
 /** 建议文字灰阶（任务书钉死：浅色 #AAA / 深色 #666——比正文明显淡但对比度可读；无青色，遵守用户偏好） */
@@ -80,104 +80,167 @@ export struct ImageAttachmentPanel {
   onPreviewImage?: (image: string) => void;
 
   build() {
-    Row() {
-      ForEach(this.images, (img: string, idx: number) => {
+    Column() {
+      // ═══ 大图预览（第一张图，全宽 RADIUS.card 圆角） ═══
+      if (this.images.length > 0) {
         Stack() {
-          // fix: MAIN-001 · 真实图片路径渲染缩略图（file:///data/...），sys.symbol/mock 兜底
           Column() {
-            if (img.startsWith('file://') || img.startsWith('/') || img.startsWith('datashare://') || img.startsWith('photo')) {
-              Image(img)
-                .width(72).height(72)
-                .borderRadius(RADIUS.input)
+            if (this.images[0].startsWith('file://') || this.images[0].startsWith('/') || this.images[0].startsWith('datashare://') || this.images[0].startsWith('photo')) {
+              Image(this.images[0])
+                .width('100%')
+                .height(200)
+                .borderRadius(RADIUS.card)
                 .objectFit(ImageFit.Cover)
             } else {
-              SymbolGlyph(this.imageIconFor(img))
-                .fontSize(32)
-                .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+              SymbolGlyph(this.imageIconFor(this.images[0]))
+                .fontSize(48)
+                .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
             }
           }
-          .width(72)
-          .height(72)
-          .borderRadius(RADIUS.input)
-          .backgroundColor(this.tokens ? this.tokens.accent : '#E6F9F8')
+          .width('100%')
+          .height(200)
+          .borderRadius(RADIUS.card)
+          .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
           .onClick(() => {
             if (this.onPreviewImage) {
-              this.onPreviewImage(img);
+              this.onPreviewImage(this.images[0]);
             }
           })
-          .gesture(
-            LongPressGesture({ repeat: false, duration: 400 })
-              .onAction(() => {
-                if (this.onDeleteImage) {
-                  this.onDeleteImage(idx);
-                }
-              })
-          )
-          .accessibilityText('图片' + (idx + 1).toString() + '，长按删除')
 
-          // 删除角标
+          // 删除角标（大图）
           Button() {
             SymbolGlyph(IconMapper.CLOSE)
               .fontSize(12)
               .fontColor(['#FFFFFF'])
           }
-          .width(22)
-          .height(22)
-          .backgroundColor(this.tokens ? this.tokens.danger : '#78909C')
-          .borderRadius(11)
-          .position({ right: -8, top: -8 })
+          .width(28)
+          .height(28)
+          .backgroundColor(this.tokens ? this.tokens.danger : '#FF4D4F')
+          .borderRadius(14)
+          .position({ right: 8, top: 8 })
           .onClick(() => {
             if (this.onDeleteImage) {
-              this.onDeleteImage(idx);
+              this.onDeleteImage(0);
             }
           })
-          .accessibilityText('删除图片')
+          .accessibilityText('删除大图')
           .accessibilityLevel('yes')
         }
-        .margin({ right: 10 })
-      }, (img: string, idx: number) => idx.toString())
+        .width('100%')
+      } else {
+        // 空状态：虚线占位区域
+        Column() {
+          SymbolGlyph(IconMapper.CAMERA)
+            .fontSize(32)
+            .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
+          Text('点击添加照片')
+            .fontSize(TYPO.body.size)
+            .fontColor(this.tokens ? this.tokens.textTertiary : '#999999')
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .height(200)
+        .borderRadius(RADIUS.card)
+        .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
+        .border({ width: 2, color: this.tokens ? this.tokens.border : '#E0E6ED', style: BorderStyle.Dashed })
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => {
+          if (this.onAddImage) {
+            this.onAddImage();
+          }
+        })
+        .accessibilityText('添加照片')
+        .accessibilityLevel('yes')
+      }
 
-      // 添加图片按钮
-      Column() {
-        // HUI-041：空心描边圆圈 + 粗加号（去 plus_circle_fill 实心填充）
-        Stack() {
+      // ═══ 缩略图行（56×56 RADIUS.item + 虚线加号） ═══
+      Row() {
+        ForEach(this.images, (img: string, idx: number) => {
+          Stack() {
+            Column() {
+              if (img.startsWith('file://') || img.startsWith('/') || img.startsWith('datashare://') || img.startsWith('photo')) {
+                Image(img)
+                  .width(56).height(56)
+                  .borderRadius(RADIUS.item)
+                  .objectFit(ImageFit.Cover)
+              } else {
+                SymbolGlyph(this.imageIconFor(img))
+                  .fontSize(24)
+                  .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
+              }
+            }
+            .width(56)
+            .height(56)
+            .borderRadius(RADIUS.item)
+            .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
+            .onClick(() => {
+              if (this.onPreviewImage) {
+                this.onPreviewImage(img);
+              }
+            })
+            .gesture(
+              LongPressGesture({ repeat: false, duration: 400 })
+                .onAction(() => {
+                  if (this.onDeleteImage) {
+                    this.onDeleteImage(idx);
+                  }
+                })
+            )
+            .accessibilityText('图片' + (idx + 1).toString() + '，长按删除')
+
+            // 删除角标（缩略图）
+            Button() {
+              SymbolGlyph(IconMapper.CLOSE)
+                .fontSize(10)
+                .fontColor(['#FFFFFF'])
+            }
+            .width(18)
+            .height(18)
+            .backgroundColor(this.tokens ? this.tokens.danger : '#FF4D4F')
+            .borderRadius(9)
+            .position({ right: -6, top: -6 })
+            .onClick(() => {
+              if (this.onDeleteImage) {
+                this.onDeleteImage(idx);
+              }
+            })
+            .accessibilityText('删除图片')
+            .accessibilityLevel('yes')
+          }
+          .margin({ right: 8 })
+        }, (img: string, idx: number) => idx.toString())
+
+        // 添加图片按钮（虚线框）
+        Column() {
           SymbolGlyph(IconMapper.PLUS)
             .fontSize(ICON.plus)
             .fontWeight(FontWeight.Bold)
-            .fontColor([this.tokens ? this.tokens.textTertiary : '#CCCCCC'])
+            .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
         }
-        .width(ICON.plusRing)
-        .height(ICON.plusRing)
-        .borderRadius(ICON.plusRing / 2)
-        .border({
-          width: ICON.ringStroke,
-          color: this.tokens ? this.tokens.textTertiary : '#CCCCCC'
+        .width(56)
+        .height(56)
+        .borderRadius(RADIUS.item)
+        .border({ width: 2, color: this.tokens ? this.tokens.border : '#E0E6ED', style: BorderStyle.Dashed })
+        .backgroundColor(Color.Transparent)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => {
+          if (this.onAddImage) {
+            this.onAddImage();
+          }
         })
-        Text('添加')
-          .fontSize(TYPO.eyebrow.size)
-          .fontColor(this.tokens ? this.tokens.textTertiary : '#CCCCCC')
-          .margin({ top: 4 })
-          .attributeModifier(SKETCH_BODY) // HUI-027：添加图片标签→清松手写体2
+        .accessibilityText('添加图片')
+        .accessibilityLevel('yes')
       }
-      .width(72)
-      .height(72)
-      .borderRadius(RADIUS.input)
-      .border({ width: 2, color: this.tokens ? this.tokens.btnAux : '#C6BBAE', style: BorderStyle.Dashed }) // HUI-035：添加图片描边→燕麦 btnAux
-      .backgroundColor(Color.Transparent)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        if (this.onAddImage) {
-          this.onAddImage();
-        }
-      })
-      .accessibilityText('添加图片')
-      .accessibilityLevel('yes')
+      .width('100%')
+      .margin({ top: SPACING.cardPadSm })
     }
     .width('100%')
-    .padding({ top: 8, bottom: 8 })
   }
 
   /**
@@ -282,27 +345,27 @@ export struct DiaryEditPage {
   build() {
     Column() {
       // ═══════════════════════════════════════════
-      // 顶部导航栏（关闭 · 日期 mono · 字数）
+      // 顶部导航栏（返回 · 编辑日记 · 保存）
       // ═══════════════════════════════════════════
       Row() {
         Button() {
-          SymbolGlyph(IconMapper.CLOSE)
+          SymbolGlyph(IconMapper.ARROW_BACK)
             .fontSize(ICON.navBack)
-            .fontWeight(FontWeight.Bold) // fix: HUI-041 — 顶部退回控件加粗，与全局裸导航图标等大统一
+            .fontWeight(FontWeight.Bold)
             .fontColor([this.tokens ? this.tokens.textPrimary : '#1A1A1A'])
         }
         .width(44)
         .height(44)
         .borderRadius(22)
-        .backgroundColor(Color.Transparent) // fix: HUI-041 — 去圆形填充底，保留 44vp 透明热区
+        .backgroundColor(Color.Transparent)
         .onClick(() => {
           if (this.content.trim() || this.title.trim() || this.images.length > 0) {
             promptAction.showDialog({
               title: '放弃编辑？',
               message: '当前内容未保存，确定要放弃吗？',
               buttons: [
-                { text: '继续编辑', color: this.tokens ? this.tokens.primary : '#00C2B8' },
-                { text: '放弃', color: this.tokens ? this.tokens.danger : '#78909C' }
+                { text: '继续编辑', color: this.tokens ? this.tokens.primary : '#0A59F7' },
+                { text: '放弃', color: this.tokens ? this.tokens.danger : '#FF4D4F' }
               ]
             }).then((result) => {
               if (result.index === 1) {
@@ -313,28 +376,35 @@ export struct DiaryEditPage {
             router.back();
           }
         })
-        .accessibilityText('取消并返回')
+        .accessibilityText('返回')
         .accessibilityLevel('yes')
 
-        // 日期显示
-        Column() {
-          Text(DateUtils.formatDateCN(this.date))
-            .fontSize(TYPO.cardTitle.size)
-            .fontWeight(TYPO.cardTitle.weight)
-            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-          Text(DateUtils.getWeekdayName(this.date))
-            .fontSize(TYPO.eyebrow.size)
-            .fontColor(this.tokens ? this.tokens.textTertiary : '#CCCCCC')
-            .margin({ top: 2 })
-            .attributeModifier(SKETCH_BODY) // HUI-027：星期标签(纯中文)→清松手写体2；上方日期数字读出保留系统字
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
+        // 居中标题
+        Text('编辑日记')
+          .fontSize(TYPO.cardTitle.size)
+          .fontWeight(TYPO.cardTitle.weight)
+          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
 
-        // 字数统计
-        Text(this.characterCount.toString() + ' 字')
-          .fontSize(TYPO.eyebrow.size)
-          .fontColor(this.tokens ? this.tokens.textTertiary : '#CCCCCC')
+        // 保存按钮（蓝色勾选）
+        Button() {
+          SymbolGlyph(IconMapper.CHECKMARK)
+            .fontSize(ICON.navBack)
+            .fontWeight(FontWeight.Bold)
+            .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
+        }
+        .width(44)
+        .height(44)
+        .borderRadius(22)
+        .backgroundColor(Color.Transparent)
+        .enabled(!this.isSaving && this.content.trim().length > 0)
+        .opacity(this.content.trim().length > 0 ? 1.0 : 0.4)
+        .onClick(() => {
+          this.saveDiary();
+        })
+        .accessibilityText('保存日记')
+        .accessibilityLevel('yes')
       }
       .width('100%')
       .padding({ left: SPACING.pageH, right: SPACING.pageH, top: SPACING.pageTop, bottom: SPACING.cardPadSm })
@@ -342,13 +412,29 @@ export struct DiaryEditPage {
       Scroll() {
         Column() {
           // ═══════════════════════════════════════════
+          // 图片附件面板（图片在上）
+          // ═══════════════════════════════════════════
+          ImageAttachmentPanel({
+            images: this.images,
+            onAddImage: () => { this.pickImages(); },
+            onDeleteImage: (index: number) => {
+              this.images.splice(index, 1);
+              promptAction.showToast({ message: '已删除图片', duration: 1000 });
+            },
+            onPreviewImage: (_img: string) => {
+              promptAction.showToast({ message: '长按图片可删除', duration: 1500 });
+            }
+          })
+            .margin({ bottom: SPACING.cardGap })
+
+          // ═══════════════════════════════════════════
           // 标题输入（placeholder 灰）
           // ═══════════════════════════════════════════
           TextInput({ text: this.title, placeholder: '给这段时光起个标题…' })
             .fontSize(TYPO.sectionTitle.size)
             .fontWeight(TYPO.sectionTitle.weight)
             .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-            .placeholderColor(this.tokens ? this.tokens.textTertiary : '#CCCCCC')
+            .placeholderColor(this.tokens ? this.tokens.textTertiary : '#999999')
             .placeholderFont({ size: TYPO.sectionTitle.size, weight: 400 })
             .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
             .borderRadius(RADIUS.input)
@@ -356,7 +442,7 @@ export struct DiaryEditPage {
             .padding({ left: 16, right: 16 })
             .border(this.titleFocused
               ? { width: 2, color: CYAN_FOCUS_RING }
-              : { width: 1, color: this.tokens ? this.tokens.border : '#EAEAE6' })
+              : { width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
             .onFocus(() => {
               this.titleFocused = true;
             })
@@ -369,26 +455,15 @@ export struct DiaryEditPage {
             .accessibilityText('日记标题输入框')
 
           // ═══════════════════════════════════════════
-          // 5 心情选择器（青浅底 track + 选中白底/缩放/青字）
+          // 5 心情选择器
           // ═══════════════════════════════════════════
           Row() {
-            SymbolGlyph(IconMapper.MOOD_HEART)
-              .fontSize(13)
-              .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
-            Text("TODAY'S MOOD")
-              .fontSize(TYPO.eyebrow.size)
-              .fontWeight(TYPO.eyebrow.weight)
-              .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
-              .letterSpacing(2)
-              .opacity(0.7)
-              .margin({ left: 6 })
-              .attributeModifier(SKETCH_TITLE) // HUI-027：eyebrow 微标→猫啃什锦黑
-            Text('今日心情')
+            Text('心情')
               .fontSize(TYPO.body.size)
               .fontWeight(TYPO.cardTitle.weight)
               .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
               .margin({ left: 10 })
-              .attributeModifier(SKETCH_BODY) // HUI-027：中文标签→清松手写体2
+              .attributeModifier(SKETCH_BODY)
           }
           .width('100%')
           .margin({ top: SPACING.cardGap, bottom: SPACING.cardPadSm })
@@ -415,7 +490,7 @@ export struct DiaryEditPage {
                   .fontWeight(this.selectedMoodKey === opt.key ? TYPO.cardTitle.weight : TYPO.eyebrow.weight)
                   .fontColor(this.selectedMoodKey === opt.key
                     ? (this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-                    : (this.tokens ? this.tokens.textSecondary : '#5A5A5A'))
+                    : (this.tokens ? this.tokens.textSecondary : '#666666'))
                   .margin({ top: 4 })
                   .maxLines(1)
                   .attributeModifier(SKETCH_BODY) // HUI-027：心情中文标签→清松手写体2
@@ -424,11 +499,11 @@ export struct DiaryEditPage {
               .padding({ top: 10, bottom: 10 })
               .borderRadius(RADIUS.input)
               .backgroundColor(this.selectedMoodKey === opt.key
-                ? (this.tokens ? this.tokens.btnPrimary : '#738A9C')
-                : (this.tokens ? this.tokens.surface : '#FFFFFF')) // HUI-041：心情项未选中底由死白改读 surface token，深色模式跟随主题
+                ? (this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+                : (this.tokens ? this.tokens.surface : '#F0F4F8')) // HUI-041：心情项未选中底由死白改读 surface token，深色模式跟随主题
               .scale(this.selectedMoodKey === opt.key ? { x: 1.05, y: 1.05 } : { x: 1, y: 1 })
               .shadow(this.selectedMoodKey === opt.key
-                ? { radius: 10, color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)', offsetX: 0, offsetY: 4 }
+                ? { radius: 10, color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 4 }
                 : { radius: 0, color: Color.Transparent, offsetX: 0, offsetY: 0 })
               .onClick(() => {
                 this.selectedMoodKey = opt.key;
@@ -441,10 +516,10 @@ export struct DiaryEditPage {
           .width('100%')
           .padding(4)
           .borderRadius(RADIUS.input)
-          .backgroundColor(this.tokens ? this.tokens.accent : '#E6F9F8')
+          .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
 
           // ═══════════════════════════════════════════
-          // 正文 textarea（青 focus ring #00C2B8/20 + RADIUS.item）
+          // 正文 textarea（青 focus ring #0A59F7/20 + RADIUS.item）
           // ═══════════════════════════════════════════
           // ═══════════════════════════════════════════
           // 正文编辑区 —— fix: HUI-001 v2（Stack 叠加内联 ghost text）
@@ -477,7 +552,7 @@ export struct DiaryEditPage {
           TextArea({ text: this.content, placeholder: BODY_PLACEHOLDER })
             .fontSize(TYPO.body.size)
             .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-            .placeholderColor(this.tokens ? this.tokens.textTertiary : '#CCCCCC')
+            .placeholderColor(this.tokens ? this.tokens.textTertiary : '#999999')
             .placeholderFont({ size: TYPO.body.size, weight: 400 })
             .caretColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
             .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
@@ -488,7 +563,7 @@ export struct DiaryEditPage {
             .clip(true)
             .border(this.bodyFocused
               ? { width: 2, color: CYAN_FOCUS_RING }
-              : { width: 1, color: this.tokens ? this.tokens.border : '#EAEAE6' })
+              : { width: 1, color: this.tokens ? this.tokens.border : '#E0E6ED' })
             .margin({ top: SPACING.cardGap })
             .onFocus(() => { this.bodyFocused = true; })
             .onBlur(() => { this.bodyFocused = false; })
@@ -504,43 +579,27 @@ export struct DiaryEditPage {
             .accessibilityText('日记正文输入框')
 
           // ═══════════════════════════════════════════
-          // 图片附件面板
-          // ═══════════════════════════════════════════
-          ImageAttachmentPanel({
-            images: this.images,
-            onAddImage: () => { this.pickImages(); },
-            onDeleteImage: (index: number) => {
-              this.images.splice(index, 1);
-              promptAction.showToast({ message: '已删除图片', duration: 1000 });
-            },
-            onPreviewImage: (_img: string) => {
-              promptAction.showToast({ message: '长按图片可删除', duration: 1500 });
-            }
-          })
-            .margin({ top: SPACING.cardPadSm })
-
-          // ═══════════════════════════════════════════
           // 关联待办（保留鸿蒙增强功能，套用新令牌样式）
           // ═══════════════════════════════════════════
           Button() {
             Row() {
               SymbolGlyph(IconMapper.TAB_TODO)
                 .fontSize(16)
-                .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
               Text('关联待办 (' + this.getSelectedTodoCount().toString() + ')')
                 .fontSize(TYPO.body.size)
-                .fontColor(this.tokens ? this.tokens.primary : '#00C2B8')
+                .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
                 .margin({ left: 6 })
                 .attributeModifier(SKETCH_BODY) // HUI-027：按钮中文标签→清松手写体2
               Blank()
               SymbolGlyph(this.showTodoPicker ? IconMapper.COLLAPSE : IconMapper.EXPAND)
                 .fontSize(14)
-                .fontColor([this.tokens ? this.tokens.primary : '#00C2B8'])
+                .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
             }
             .width('100%')
           }
           .width('100%')
-          .backgroundColor(this.tokens ? this.tokens.btnAux : '#C6BBAE') // HUI-035：关联待办辅助按钮→燕麦 btnAux
+          .backgroundColor(this.tokens ? this.tokens.btnAux : '#E0E6ED') // HUI-035：关联待办辅助按钮→燕麦 btnAux
           .borderRadius(RADIUS.item)
           .height(44)
           .padding({ left: 16, right: 16 })
@@ -558,8 +617,8 @@ export struct DiaryEditPage {
                   SymbolGlyph(todo.selected ? IconMapper.CHECKIN_DONE : $r('sys.symbol.circle'))
                     .fontSize(18)
                     .fontColor([todo.selected
-                      ? (this.tokens ? this.tokens.btnPrimary : '#738A9C')
-                      : (this.tokens ? this.tokens.textTertiary : '#CCCCCC')])
+                      ? (this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+                      : (this.tokens ? this.tokens.textTertiary : '#999999')])
                   Text(todo.title)
                     .fontSize(TYPO.body.size)
                     .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
@@ -571,7 +630,7 @@ export struct DiaryEditPage {
                 .padding({ left: 12, right: 12, top: 10, bottom: 10 })
                 .borderRadius(RADIUS.input)
                 .backgroundColor(todo.selected
-                  ? (this.tokens ? this.tokens.btnAux : '#C6BBAE')
+                  ? (this.tokens ? this.tokens.btnAux : '#E0E6ED')
                   : Color.Transparent)
                 .margin({ top: 4 })
                 .onClick(() => {
@@ -599,27 +658,30 @@ export struct DiaryEditPage {
             .width('100%')
         }
         .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .constraintSize({ minHeight: '100%' })
         .padding({ left: SPACING.pageH, right: SPACING.pageH })
       }
       .layoutWeight(1)
+      .align(Alignment.Top)
       .scrollBar(BarState.Off)
 
       // ═══════════════════════════════════════════
-      //「保存时光」全圆主色按钮（borderRadius 22，主色 #00C2B8）
+      //「生成日记」蓝色胶囊按钮
       // ═══════════════════════════════════════════
-      Button(this.isSaving ? '保存中…' : '保存时光')
+      Button(this.isSaving ? '保存中…' : '生成日记')
         .fontSize(TYPO.cardTitle.size)
         .fontWeight(TYPO.cardTitle.weight)
         .fontColor(this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF')
-        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#738A9C')
-        .borderRadius(22)
-        .height(44)
+        .backgroundColor(this.tokens ? this.tokens.btnPrimary : '#0A59F7')
+        .borderRadius(24)
+        .height(48)
         .width('100%')
         .enabled(!this.isSaving && this.content.trim().length > 0)
         .opacity(this.content.trim().length > 0 ? 1.0 : 0.5)
         .shadow({
           radius: 12,
-          color: 'rgba(115,138,156,0.30)',
+          color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
           offsetX: 0,
           offsetY: 4
         })
@@ -627,12 +689,12 @@ export struct DiaryEditPage {
         .onClick(() => {
           this.saveDiary();
         })
-        .accessibilityText('保存时光')
+        .accessibilityText('生成日记')
         .accessibilityLevel('yes')
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+    .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
   }
 
   /**

@@ -13,7 +13,7 @@
     "features/settings": "file:../features/settings",
     "features/diary": "file:../features/diary",
     "features/search": "file:../features/search",
-    "features/statistics": "file:../features/statistics",
+    "features_statistics": "file:../features/statistics",
     "features/quote": "file:../features/quote",
     "features/pomodoro": "file:../features/pomodoro",
     "features_gesture_diary": "file:../features/gesture-diary",

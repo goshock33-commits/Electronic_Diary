@@ -276,7 +276,7 @@ export struct TodoBoard {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+      .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
 
       // 主题化日期选择弹窗（覆盖层，条件渲染——同 SettingsPage ReminderTimePickerModal 先例）
       if (this.showDatePicker) {
@@ -325,7 +325,7 @@ export struct TodoBoard {
         Text(this.pageTitle)
           .fontSize(TYPO.eyebrow.size)
           .fontWeight(700)
-          .fontColor(this.tokens ? this.tokens.textSecondary : '#5A5A5A')
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
           .opacity(0.6)
           .letterSpacing(2)
           .attributeModifier(SKETCH_TITLE) // HUI-027：页面 eyebrow 小标→猫啃什锦黑
@@ -344,12 +344,12 @@ export struct TodoBoard {
         SymbolGlyph(IconMapper.TAB_CALENDAR)
           .fontSize(20)
           // HUI-034：日期调节触发图标套 btnPrimary 雾霾蓝
-          .fontColor([this.tokens ? this.tokens.btnPrimary : '#738A9C'])
+          .fontColor([this.tokens ? this.tokens.btnPrimary : '#0A59F7'])
       }
       .width(44)
       .height(44)
       .borderRadius(22)
-      .backgroundColor(this.tokens ? this.tokens.accent : '#E6F9F8')
+      .backgroundColor(this.tokens ? this.tokens.accent : '#EBF5FF')
       .onClick(() => {
         this.openDatePicker();
       })
@@ -374,8 +374,8 @@ export struct TodoBoard {
         .height(46)
         .fontSize(TYPO.body.size)
         .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
-        .placeholderColor(this.tokens ? this.tokens.textTertiary : '#B0B0B0')
-        .backgroundColor(this.tokens ? this.tokens.bg : '#F2F2F2')
+        .placeholderColor(this.tokens ? this.tokens.textTertiary : '#999999')
+        .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
         .borderRadius(RADIUS.input)
         .padding({ left: 16, right: 16 })
         .onChange((value: string) => {
@@ -389,7 +389,7 @@ export struct TodoBoard {
         SymbolGlyph(IconMapper.PLUS)
           .fontSize(ICON.plusLg)
           .fontWeight(FontWeight.Bold) // HUI-041：粗加号
-          .fontColor([this.tokens ? this.tokens.btnPrimary : '#738A9C'])
+          .fontColor([this.tokens ? this.tokens.btnPrimary : '#0A59F7'])
       }
       .width(ICON.plusRingLg)
       .height(ICON.plusRingLg)
@@ -399,7 +399,7 @@ export struct TodoBoard {
       .backgroundColor(Color.Transparent)
       .border({
         width: ICON.ringStroke,
-        color: this.tokens ? this.tokens.btnPrimary : '#738A9C'
+        color: this.tokens ? this.tokens.btnPrimary : '#0A59F7'
       })
       .onClick(() => {
         this.addItem();
@@ -416,7 +416,7 @@ export struct TodoBoard {
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
     .border({
       width: 1,
-      color: this.tokens ? this.tokens.divider : '#EEEEEE'
+      color: this.tokens ? this.tokens.divider : '#EEF0F4'
     })
   }
 }
@@ -465,20 +465,20 @@ struct TodoAnimCard {
         if (this.completed) {
           SymbolGlyph(IconMapper.CHECKMARK)
             .fontSize(14)
-            // HUI-034：完成态勾选套 btnPrimaryText 白勾（与 btnPrimary 底成对比）
+            // HUI-034：完成态勾选套 btnPrimaryText 白勾（与 success 底成对比）
             .fontColor([this.tokens ? this.tokens.btnPrimaryText : '#FFFFFF'])
         }
       }
       .width(26)
       .height(26)
       .borderRadius(13)
-      // HUI-034：待办勾选圈完成态套 btnPrimary 雾霾蓝底（未完成留白描边）
+      // HUI-034：待办勾选圈完成态套 success 绿底（未完成留白描边）
       .backgroundColor(this.completed
-        ? (this.tokens ? this.tokens.btnPrimary : '#738A9C')
+        ? (this.tokens ? this.tokens.success : '#52C41A')
         : Color.Transparent)
       .border({
         width: this.completed ? 0 : 2,
-        color: this.tokens ? this.tokens.border : '#CFCFCF'
+        color: this.tokens ? this.tokens.border : '#E0E6ED'
       })
 
       // 标题（已完成加删除线 + 弱化色）
@@ -486,11 +486,11 @@ struct TodoAnimCard {
         .fontSize(TYPO.body.size + 1)
         .fontWeight(this.completed ? 400 : 500)
         .fontColor(this.completed
-          ? (this.tokens ? this.tokens.textTertiary : '#BDBDBD')
+          ? (this.tokens ? this.tokens.textTertiary : '#999999')
           : (this.tokens ? this.tokens.textPrimary : '#1A1A1A'))
         .decoration({
           type: this.completed ? TextDecorationType.LineThrough : TextDecorationType.None,
-          color: this.tokens ? this.tokens.textTertiary : '#BDBDBD'
+          color: this.tokens ? this.tokens.textTertiary : '#999999'
         })
         .layoutWeight(1)
         .margin({ left: 14 })
@@ -505,11 +505,11 @@ struct TodoAnimCard {
     .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
     .border({
       width: 1,
-      color: this.tokens ? this.tokens.border : '#EAEAEA'
+      color: this.tokens ? this.tokens.border : '#E0E6ED'
     })
     .shadow({
       radius: 8,
-      color: this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.06)',
+      color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
       offsetX: 0,
       offsetY: 2
     })

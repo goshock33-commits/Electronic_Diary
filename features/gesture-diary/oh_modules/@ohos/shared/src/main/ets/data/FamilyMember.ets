@@ -4,6 +4,8 @@
 // Task: 家庭成员实体 —— family_member 表（v4→v5 迁移新增）；todo.assignee_member_id 指派外键（逻辑引用，不建 FK 约束，先例：happy_thing.emoji_id）
 // 合规(§8.2): 时间戳 INTEGER、snake_case 列名；aliases 以 JSON 字符串落库（RDB 无对象列型，先例：todo.custom_tags / diary.images）
 // T707: aliases 格式重构 —— 从 string[] 改为 Record<string,string>（targetUid → alias 映射），存在「我自己」的 FamilyMember 记录里
+// fix: DEV-006 · T013 成员资料 3 列（avatar/gender/birthday）；phone 建表语句 v5 起已含，模型早已具备，不重复新增
+//   （建列见 DatabaseHelper.ensureAccountProfileColumns；读写见 FamilyMemberDao）
 export class FamilyMember {
   id: number = 0;
   /** 服务端用户 uid（未绑定账号的本地成员为 null） */
@@ -23,6 +25,12 @@ export class FamilyMember {
   /** 是否本机用户自己（0/1，一个家庭内本机仅一条 is_self=1） */
   is_self: number = 0;
   created_at: number = 0;
+  /** fix: DEV-006 · T013 头像 URL / 本地 file uri（null=未设置，UI 用默认头像兜底） */
+  avatar: string | null = null;
+  /** fix: DEV-006 · T013 性别（'male' | 'female' | 'other'，null=未填写） */
+  gender: string | null = null;
+  /** fix: DEV-006 · T013 生日 'YYYY-MM-DD'（TEXT 落库，null=未填写） */
+  birthday: string | null = null;
 
   constructor(nickname?: string, role?: string, family_id?: string) {
     if (nickname) { this.nickname = nickname; }

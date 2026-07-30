@@ -101,7 +101,7 @@ export struct SettingsPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+      .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
     } else if (this.currentPage === SettingsSubPage.REMINDER) {
       // 提醒方式子页面 — 回调桥接到 DiaryReminderManager
       ReminderSettingsPage({

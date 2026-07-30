@@ -2,7 +2,8 @@
 // @Entry 家庭成员页「壳」（eyebrow「FAMILY MEMBERS」+ H1「家庭成员」+ features_family FamilyPage）
 // 壳页模式复刻 PomodoroPage：返回按钮 + eyebrow + H1 + feature 内容主体 + 猫爪特效层
 // §1.4 三者一致：模块 name = features_family = 依赖 key = import 路径
-// §9.4：@StorageLink tokens 读取全部判空兜底（黑白手绘风格中性兜底）
+// §9.4：@StorageLink tokens 读取全部判空兜底（HarmonyOS 蓝白卡片风格中性兜底）
+// 主题：HarmonyOS 蓝白卡片风格（primary=#0A59F7, bg=#F5F7FA, bgCard=#FFFFFF）
 // 图标：person(NAV_PROFILE✅) / arrow_left(ARROW_BACK✅)
 // 令牌：IconMapper / SPACING / TYPO / ICON —— 全引用，禁散写魔数
 
@@ -46,7 +47,7 @@ struct FamilyPageEntry {
         Row() {
           SymbolGlyph(IconMapper.NAV_PROFILE)
             .fontSize(14)
-            .fontColor([this.tokens ? this.tokens.primary : '#000000'])
+            .fontColor([this.tokens ? this.tokens.primary : '#0A59F7'])
             .margin({ right: 6 })
           Text('FAMILY MEMBERS')
             .fontSize(TYPO.eyebrow.size)
@@ -61,7 +62,7 @@ struct FamilyPageEntry {
         Text('家庭成员')
           .fontSize(TYPO.h1.size)
           .fontWeight(TYPO.h1.weight)
-          .fontColor(this.tokens ? this.tokens.primary : '#000000')
+          .fontColor(this.tokens ? this.tokens.primary : '#0A59F7')
           .width('100%')
           .margin({ top: 4, bottom: SPACING.sectionGap })
           .attributeModifier(SKETCH_TITLE)
@@ -77,14 +78,14 @@ struct FamilyPageEntry {
         right: SPACING.pageH,
         top: SPACING.pageTop
       })
-      .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+      .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
       .accessibilityGroup(true)
       .accessibilityText('家庭成员页面')
       // 猫爪特效触摸捕获（页面树内监听 Down，不消费；视觉层在外包 Stack 顶层）
       .onTouch((event: TouchEvent) => reportPawTouch(event))
 
       // 猫爪视觉层（同树最上层子节点，不参与命中，不挡交互）
-      PawOverlayLayer()
+      // PawOverlayLayer()
     }
     .width('100%')
     .height('100%')

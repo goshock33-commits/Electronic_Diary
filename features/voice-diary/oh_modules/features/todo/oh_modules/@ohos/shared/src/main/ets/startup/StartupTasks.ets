@@ -47,16 +47,23 @@ export class StartupTasks {
    *   见文件头注释）；由 EntryAbility.onWindowStageCreate 的 loadContent 回调独占调用。
    */
   static async initBaseContext(context: Context): Promise<void> {
+    console.info('[STARTUP-P0] initBaseContext START');
     hilog.info(0xFF00, TAG, '[P0] InitBaseContext starting...');
     try {
+      console.info('[STARTUP-P0] Before AppState.initialize');
       // Initialize global state keys in AppStorage
       AppState.initialize(context);
+      console.info('[STARTUP-P0] After AppState.initialize');
       // fix: DEV-011 —— 此处不得调用 PersistentState.initialize（UI 实例未就绪，persistProp 必失效）
       // Initialize the event bus
+      console.info('[STARTUP-P0] Before EventBus.initialize');
       EventBus.initialize();
+      console.info('[STARTUP-P0] After EventBus.initialize');
       StartupTasks.markComplete('InitBaseContext');
       hilog.info(0xFF00, TAG, '[P0] InitBaseContext completed');
+      console.info('[STARTUP-P0] initBaseContext SUCCESS');
     } catch (err) {
+      console.error('[STARTUP-P0] initBaseContext FAILED:', err);
       hilog.error(0xFF00, TAG, '[P0] InitBaseContext FAILED: %{public}s', JSON.stringify(err));
       throw new Error('[P0] InitBaseContext failed');
     }
@@ -69,10 +76,14 @@ export class StartupTasks {
    * - Set securityLevel: S2
    */
   static async initDatabase(context: Context): Promise<void> {
+    console.info('[STARTUP-P0] initDatabase START');
     hilog.info(0xFF00, TAG, '[P0] InitDatabase starting...');
     try {
+      console.info('[STARTUP-P0] Before DatabaseHelper.getInstance');
       const dbHelper = DatabaseHelper.getInstance();
+      console.info('[STARTUP-P0] Before dbHelper.initialize');
       await dbHelper.initialize(context);
+      console.info('[STARTUP-P0] After dbHelper.initialize');
       // Seed builtin moods into custom_emoji (DEV-DB 缺口#8). Idempotent (is_builtin count guard).
       // Non-critical: seed failure must NOT block startup — log and continue (同 registerNotificationChannels 范式)。
       try {
@@ -246,10 +257,13 @@ export class StartupTasks {
    */
   static async executeAll(context: Context): Promise<void> {
     const startTime = Date.now();
+    console.info('[STARTUP] executeAll BEGIN');
     hilog.info(0xFF00, TAG, '========== AppStartup Begin ==========');
 
     // Phase 1: P0 synchronous tasks (serial, blocking first frame)
+    console.info('[STARTUP] About to execute P0 tasks');
     await StartupTasks.executeP0Tasks(context);
+    console.info('[STARTUP] P0 tasks completed');
     const p0Time = Date.now() - startTime;
     hilog.info(0xFF00, TAG, '[P0] Phase completed in %{public}dms', p0Time);
 

@@ -19,7 +19,7 @@ const TAG: string = 'TodoPage';
 
 @Entry
 @Component
-struct TodoPage {
+export struct TodoPage {
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
 
   build() {
@@ -32,11 +32,11 @@ struct TodoPage {
         }
       })
       // HUI-001: 猫爪视觉层（同树最上层子节点，整层 None 不参与命中，不挡交互）
-      PawOverlayLayer()
+      // PawOverlayLayer()
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.tokens ? this.tokens.bg : '#FAF8F5')
+    .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
     // HUI-001: 猫爪特效触摸捕获（页面树内监听 Down，不消费；视觉层在本页根 Stack 顶层）
     .onTouch((event: TouchEvent) => reportPawTouch(event))
   }

@@ -1,6 +1,6 @@
 // <!-- agentID: HUI-060 -->
 // agentID: HUI-041（T-D05：返回箭头统一 — 裸 arrow_left 加粗 ICON.navBack，去圆形填充底）
-// 页面：小艺语音助手主页（P2-08：薄荷青皮肤统一 —— eyebrow+H1 + RADIUS.cardLg卡片 + 青染阴影 + 时长mono numCard）
+// 页面：小艺语音助手主页（P2-08：蓝白卡片皮肤统一 —— eyebrow+H1 + RADIUS.cardLg卡片 + 柔和阴影 + 时长mono numCard）
 // 关联任务：P2-08（PLN-003 阶段P2 首页骨架复刻 §6.2 语音助手页换肤）
 // 关联设计稿：UX-001_redesign_report.md §6.2
 // 设计令牌：TYPO / RADIUS / SPACING / FONT（全引用，禁魔数字号/字重/圆角/间距）
@@ -54,17 +54,17 @@ export struct VoiceAssistantPage {
     this.stopDurationTimer();
   }
 
-  // ==== 主题色兜底（普通方法，非 getter；对齐 mint 预设值，参考 AIChatView HUI-051）====
+  // ==== 主题色兜底（普通方法，非 getter；对齐蓝白卡片预设值，参考 AIChatView HUI-051）====
   private getBg(): string {
-    return this.tokens ? this.tokens.bg : '#FAF8F5';
+    return this.tokens ? this.tokens.bg : '#F5F7FA';
   }
 
   private getPrimary(): string {
-    return this.tokens ? this.tokens.primary : '#00C2B8';
+    return this.tokens ? this.tokens.primary : '#0A59F7';
   }
 
   private getPrimaryLight(): string {
-    return this.tokens ? this.tokens.primaryLight : '#4FD8CE';
+    return this.tokens ? this.tokens.primaryLight : '#3B82F6';
   }
 
   private getTextPrimary(): string {
@@ -72,48 +72,48 @@ export struct VoiceAssistantPage {
   }
 
   private getTextSecondary(): string {
-    return this.tokens ? this.tokens.textSecondary : '#5A5A5A';
+    return this.tokens ? this.tokens.textSecondary : '#666666';
   }
 
   private getTextTertiary(): string {
-    return this.tokens ? this.tokens.textTertiary : '#8A8A8A';
+    return this.tokens ? this.tokens.textTertiary : '#999999';
   }
 
   private getCardBg(): string {
-    return this.tokens ? this.tokens.bgCard : 'rgba(255,255,255,0.85)';
+    return this.tokens ? this.tokens.bgCard : '#FFFFFF';
   }
 
   private getSurface(): string {
-    return this.tokens ? this.tokens.surface : '#FFFFFF';
+    return this.tokens ? this.tokens.surface : '#F0F4F8';
   }
 
   private getBorder(): string {
-    return this.tokens ? this.tokens.border : 'rgba(0,194,184,0.15)';
+    return this.tokens ? this.tokens.border : '#E0E6ED';
   }
 
   private getShadow(): string {
-    return this.tokens ? this.tokens.shadow : 'rgba(0,194,184,0.10)';
+    return this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)';
   }
 
   private getDanger(): string {
-    return this.tokens ? this.tokens.danger : '#78909C';
+    return this.tokens ? this.tokens.danger : '#FF4D4F';
   }
 
   private getWarning(): string {
-    return this.tokens ? this.tokens.warning : '#80CBC4';
+    return this.tokens ? this.tokens.warning : '#FAAD14';
   }
 
   private getSuccess(): string {
-    return this.tokens ? this.tokens.success : '#00C2B8';
+    return this.tokens ? this.tokens.success : '#52C41A';
   }
 
-  // HUI-035：交互色专用 token（雾霾蓝主按钮 / 燕麦辅助 / 白按钮文字）
+  // HUI-035：交互色专用 token（HarmonyOS 蓝主按钮 / 浅灰辅助 / 白按钮文字）
   private getBtnPrimary(): string {
-    return this.tokens ? this.tokens.btnPrimary : '#738A9C';
+    return this.tokens ? this.tokens.btnPrimary : '#0A59F7';
   }
 
   private getBtnAux(): string {
-    return this.tokens ? this.tokens.btnAux : '#C6BBAE';
+    return this.tokens ? this.tokens.btnAux : '#E0E6ED';
   }
 
   private getBtnPrimaryText(): string {
@@ -329,7 +329,7 @@ export struct VoiceAssistantPage {
     .backgroundColor(this.getBg())
   }
 
-  // ==== 模式切换器（mint 青染版）====
+  // ==== 模式切换器（蓝白卡片版）====
   @Builder
   buildModeSelector() {
     Row() {
@@ -409,7 +409,7 @@ export struct VoiceAssistantPage {
         .margin({ top: 20 }).justifyContent(FlexAlign.Center)
       }
 
-      // 实时转文字面板（监听/识别态显示）—— 外部卡片 RADIUS.cardLg + 青染阴影
+      // 实时转文字面板（监听/识别态显示）—— 外部卡片 RADIUS.cardLg + 柔和阴影
       if (this.stage === 'listening' || this.stage === 'processing' || this.networkTimeout) {
         VoiceTranscriptPanel({
           transcript: this.transcript,
@@ -447,7 +447,7 @@ export struct VoiceAssistantPage {
           lowConfidence: this.lowConfidence,
           onConfirmTodo: (fields: VoiceTodoFields) => { this.onConfirmTodo(fields); },
           onConfirmDiary: (text: string) => { this.onConfirmDiary(text); },
-          onEdit: () => { promptAction.showToast({ message: '进入编辑', duration: 1200 }); },
+          onEdit: () => { router.pushUrl({ url: 'pages/DiaryEditPage' }); },
           onCancel: () => { this.resetFlow(); }
         })
       }
@@ -475,14 +475,14 @@ export struct VoiceAssistantPage {
       Row() {
         Button('再记一条')
           .fontSize(TYPO.body.size).fontColor(this.getTextPrimary())
-          .backgroundColor(this.getBtnAux()) // HUI-035：辅助按钮→燕麦 btnAux + 深字
+          .backgroundColor(this.getBtnAux()) // HUI-035：辅助按钮→浅灰 btnAux + 深字
           .borderRadius(RADIUS.input).height(48).layoutWeight(1)
           .onClick(() => { this.resetFlow(); })
           .accessibilityText('再记一条')
 
         Button('完成')
           .fontSize(TYPO.body.size).fontWeight(600).fontColor(this.getBtnPrimaryText())
-          .backgroundColor(this.getBtnPrimary()) // HUI-035：主按钮→雾霾蓝 btnPrimary + 白字
+          .backgroundColor(this.getBtnPrimary()) // HUI-035：主按钮→HarmonyOS 蓝 btnPrimary + 白字
           .borderRadius(RADIUS.input).height(48).layoutWeight(1).margin({ left: 12 })
           .onClick(() => { this.goBack(); })
           .accessibilityText('完成并返回')
