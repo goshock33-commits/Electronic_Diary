@@ -15,6 +15,7 @@
     "pages/FamilyPage",
     "pages/FamilyMemberDetailPage",
     "pages/FamilyNotificationPage",
+    "pages/FamilyTodoDetailPage",
     "pages/LoginPage",
     "pages/BackupPreviewPage",
     "pages/QuickCameraPage",

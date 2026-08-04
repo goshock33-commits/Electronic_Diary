@@ -29,6 +29,7 @@ import { CloudDbService, CloudAccount } from '../cloud/CloudDbService';
 import { EncryptionUtils } from './EncryptionUtils';
 import { Result } from './FamilyManager';
 import { FamilyMemberDao } from '../database/dao/FamilyMemberDao';
+import { EventBus, AccountLoginSuccessData } from './EventBus';
 
 const TAG: string = 'AccountManager';
 const LOG_DOMAIN: number = 0xFF00;
@@ -391,6 +392,8 @@ export class AccountManager {
   /**
    * 登录/注册成功后的本地落库 + 内存态更新（token 列恒存空串占位）。
    * T705: 新增 nickname 参数，写入本地 account 表 + 更新内存态 currentNickname 供 getCurrentNickname 使用。
+   * T031 (DEV-001): 登录成功后触发 push token 上报到云端（火后不管模式，失败仅记日志）。
+   * DEV-007: 登录成功后发送 EventBus 事件，触发首页等订阅方刷新数据。
    */
   private async cacheLoginLocally(uid: string, phone: string, nickname?: string): Promise<Result<string>> {
     try {
@@ -403,12 +406,45 @@ export class AccountManager {
         this.currentNickname = nick;
       }
       this.publishLoginState(); // T602: 注册/登录成功即时广播 → UI 无需重进页面即刷新
+
+      // DEV-007: 发送登录成功事件，触发首页数据刷新
+      const loginEventData: AccountLoginSuccessData = { uid: uid, phone: phone };
+      EventBus.emit(EventBus.EventNames.ACCOUNT_LOGIN_SUCCESS, loginEventData);
+      hilog.info(LOG_DOMAIN, TAG, 'DEV-007: emitted ACCOUNT_LOGIN_SUCCESS event');
+
+      // T031: 登录成功后触发 push token 同步（fire-and-forget，失败不影响登录结果）
+      this.syncPushTokenAfterLogin().catch((err: Error) => {
+        hilog.error(LOG_DOMAIN, TAG, 'T031: syncPushTokenAfterLogin failed: %{public}s', err.message);
+      });
+
       hilog.info(LOG_DOMAIN, TAG, 'Login cached: uid=%{public}s phone=%{public}s nick=%{public}s', uid, phone, nick);
       return Result.ok<string>(uid);
     } catch (err) {
       hilog.error(LOG_DOMAIN, TAG, 'Failed to save login account: %{public}s',
         (err as Error).message ?? '');
       return Result.fail<string>('Failed to save login state: ' + (err as Error).message);
+    }
+  }
+
+  /**
+   * T031: 登录成功后同步 push token 到云端（异步 fire-and-forget）。
+   * 场景：① 先登录后授权推送 ② 登录时 token 已就绪 ③ token 变更后重新登录。
+   * PushManager.syncToken 内部自动处理：token 未就绪时重试获取 + 与上次缓存比较去重。
+   */
+  private async syncPushTokenAfterLogin(): Promise<void> {
+    try {
+      // 动态 import 避免循环依赖（PushManager 依赖 AccountManager，此处反向依赖需延迟加载）
+      const pushModule = await import('../push/PushManager');
+      const result = await pushModule.PushManager.getInstance().syncToken();
+      if (result.success) {
+        hilog.info(LOG_DOMAIN, TAG, 'T031: push token synced after login, len=%{public}d',
+          result.data?.length ?? 0);
+      } else {
+        hilog.warn(LOG_DOMAIN, TAG, 'T031: push token sync skipped: %{public}s', result.message);
+      }
+    } catch (err) {
+      hilog.error(LOG_DOMAIN, TAG, 'T031: push token sync exception: %{public}s',
+        (err as Error).message ?? '');
     }
   }
 }

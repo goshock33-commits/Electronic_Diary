@@ -1,0 +1,8 @@
+{
+  "module": {
+    "name": "features_family_message",
+    "type": "har",
+    "description": "Feature module: family message stream",
+    "deviceTypes": ["phone", "tablet", "2in1", "wearable"]
+  }
+}

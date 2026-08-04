@@ -1,0 +1,10 @@
+# Obfuscation rules for features_family_message module
+# Keep all exports (required for HAR modules)
+-keep-global-name
+-keep-property-name
+-keep-file-name
+
+# Keep all public APIs
+-keep class ** {
+  public *;
+}

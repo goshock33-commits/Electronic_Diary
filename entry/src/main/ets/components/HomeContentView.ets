@@ -5,9 +5,11 @@
 // 崩溃防范（PROJECT_SPEC §9）：@StorageLink 全判空；@State 驱动刷新；无 getter-in-build
 // 图标合规（PROJECT_SPEC §10）：仅用 SymbolGlyph + IconMapper；无 emoji
 // 注意：底部 Tab 由 MainPage FloatingTabBar 提供，本组件不包含 Tab 栏
+// DEV-007: 订阅登录成功事件，自动刷新首页数据
 
 import type { ThemeColorTokens } from '@ohos/shared';
-import { IconMapper, RADIUS, SPACING, TYPO, SKETCH_BODY_TYPO, SKETCH_BODY, SKETCH_CARD_TITLE, SKETCH_EYEBROW, SKETCH_SECTION_TITLE, FamilyMessageManager, MessageGroup } from '@ohos/shared';
+import { IconMapper, RADIUS, SPACING, TYPO, SKETCH_BODY_TYPO, SKETCH_BODY, SKETCH_CARD_TITLE, SKETCH_EYEBROW, SKETCH_SECTION_TITLE, MessageGroup, FamilyManager, Result, FamilyMember, EventBus } from '@ohos/shared';
+import { FamilyMessageViewModel } from 'features_family_message';
 import { DrawerMenu } from './DrawerMenu';
 import { router, promptAction } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -49,42 +51,107 @@ interface FeedMessage {
 export struct HomeContentView {
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
   @State showDrawer: boolean = false;
+  @State viewModel: FamilyMessageViewModel = new FamilyMessageViewModel();
+  @State isRefreshing: boolean = false;
   @State private feedMessages: FeedMessage[] = [];
+  @State private hasFamilyMembers: boolean = false;
 
   /** AI 快捷入口数据（图标走 IconMapper 静态常量；bgColor/iconColor 为装饰性浅色 tint） */
   private quickEntries: QuickEntry[] = [
     { key: 'photo', icon: IconMapper.CAMERA, label: '拍照记日记', bgColor: '#EBF5FF', iconColor: '#0A59F7' },
+    { key: 'todo', icon: IconMapper.TAB_TODO, label: '待办管理', bgColor: '#FFF0F0', iconColor: '#FF4D4F' },
+    { key: 'sync', icon: IconMapper.SYNC, label: '多端同步', bgColor: '#E6F7FF', iconColor: '#13C2C2' },
     { key: 'voice', icon: IconMapper.MIC, label: '语音记录', bgColor: '#E8F8EE', iconColor: '#52C41A' },
     { key: 'generate', icon: IconMapper.BOOKMARK, label: '日记生成', bgColor: '#FFF4E6', iconColor: '#FAAD14' },
-    { key: 'remind', icon: IconMapper.BELL, label: '提醒事项', bgColor: '#F0EEFF', iconColor: '#722ED1' },
-    { key: 'todo', icon: IconMapper.TAB_TODO, label: '家庭待办', bgColor: '#FFF0F0', iconColor: '#FF4D4F' },
-    { key: 'ai', icon: IconMapper.AI_COMPANION, label: 'AI助手', bgColor: '#E6F7FF', iconColor: '#13C2C2' }
+    { key: 'ai', icon: IconMapper.AI_COMPANION, label: 'AI助手', bgColor: '#F0EEFF', iconColor: '#722ED1' }
   ];
 
-  // fix: DEV-026 · 接入 FamilyMessageManager 真实消息流
   async aboutToAppear(): Promise<void> {
-    await this.loadMessages();
+    hilog.info(0x0000, TAG, '🚀 HomeContentView aboutToAppear: START');
+
+    // DEV-007: 订阅登录成功事件，自动刷新首页数据
+    EventBus.on(EventBus.EventNames.ACCOUNT_LOGIN_SUCCESS, async () => {
+      hilog.info(0x0000, TAG, '🔄 DEV-007: received ACCOUNT_LOGIN_SUCCESS, triggering refresh');
+      await this.handleRefresh();
+    });
+
+    try {
+      await this.loadMessages();
+      hilog.info(0x0000, TAG, '✅ HomeContentView aboutToAppear: loadMessages completed');
+      await this.checkFamilyMembers();
+      hilog.info(0x0000, TAG, '✅ HomeContentView aboutToAppear: checkFamilyMembers completed');
+    } catch (e) {
+      hilog.error(0x0000, TAG, '❌ HomeContentView aboutToAppear failed: %{public}s', (e as Error).message);
+    }
+    hilog.info(0x0000, TAG, '🏁 HomeContentView aboutToAppear: END, hasFamilyMembers=%{public}s',
+      this.hasFamilyMembers.toString());
+  }
+
+  aboutToDisappear(): void {
+    // DEV-007: 取消订阅登录成功事件，避免内存泄漏
+    EventBus.off(EventBus.EventNames.ACCOUNT_LOGIN_SUCCESS);
+    hilog.info(0x0000, TAG, '🧹 DEV-007: unsubscribed from ACCOUNT_LOGIN_SUCCESS');
+
+    this.viewModel.dispose();
   }
 
   /**
    * 加载家庭消息流
    */
   private async loadMessages(): Promise<void> {
+    await this.viewModel.loadConversations();
+    this.feedMessages = this.convertToFeedMessages(this.viewModel.conversationList);
+    hilog.info(0x0000, TAG, 'loadMessages: loaded %{public}d conversations', this.viewModel.conversationList.length);
+  }
+
+  /**
+   * 检查是否有家庭成员
+   */
+  private async checkFamilyMembers(): Promise<void> {
+    hilog.info(0x0000, TAG, '🔍 checkFamilyMembers: starting...');
+
     try {
-      const result = await FamilyMessageManager.getInstance().getMyMessageStream();
+      const result: Result<FamilyMember[]> = await FamilyManager.getInstance().getAllMembers();
+      hilog.info(0x0000, TAG, '🔍 checkFamilyMembers: success=%{public}s, data is null=%{public}s, count=%{public}d',
+        result.success.toString(),
+        (result.data === null).toString(),
+        result.data ? result.data.length : 0);
+
       if (result.success && result.data !== null) {
-        const groups: MessageGroup[] = result.data;
-        this.feedMessages = this.convertToFeedMessages(groups);
-        hilog.info(0x0000, TAG, 'loadMessages: loaded %{public}d message groups', groups.length);
+        // 显式赋值，确保 @State 触发刷新
+        const hasMembers = result.data.length > 0;
+        this.hasFamilyMembers = hasMembers;
+
+        hilog.info(0x0000, TAG, '✅ checkFamilyMembers: hasFamilyMembers=%{public}s, memberCount=%{public}d',
+          this.hasFamilyMembers.toString(), result.data.length);
+
+        if (result.data.length > 0) {
+          hilog.info(0x0000, TAG, '📋 checkFamilyMembers: members=[%{public}s]',
+            result.data.map((m: FamilyMember) => m.nickname).join(', '));
+        }
       } else {
-        hilog.error(0x0000, TAG, 'loadMessages failed: %{public}s', result.message || 'unknown');
-        // 失败时显示空列表（不用 mock 数据）
-        this.feedMessages = [];
+        this.hasFamilyMembers = false;
+        hilog.warn(0x0000, TAG, '⚠️ checkFamilyMembers: failed or null data, message=%{public}s', result.message);
       }
     } catch (e) {
-      hilog.error(0x0000, TAG, 'loadMessages exception: %{public}s', (e as Error).message);
-      this.feedMessages = [];
+      this.hasFamilyMembers = false;
+      hilog.error(0x0000, TAG, '❌ checkFamilyMembers exception: %{public}s', (e as Error).message);
     }
+
+    // 强制打印最终状态
+    hilog.info(0x0000, TAG, '🏁 checkFamilyMembers: FINAL hasFamilyMembers=%{public}s',
+      this.hasFamilyMembers.toString());
+  }
+
+  /**
+   * 下拉刷新处理
+   */
+  private async handleRefresh(): Promise<void> {
+    this.isRefreshing = true;
+    await this.viewModel.refresh();
+    this.feedMessages = this.convertToFeedMessages(this.viewModel.conversationList);
+    await this.checkFamilyMembers();
+    this.isRefreshing = false;
   }
 
   /**
@@ -159,22 +226,29 @@ export struct HomeContentView {
       // ── 主内容区：顶栏 + 可滚动内容 ──
       Column() {
         this.buildTopNav()
-        Scroll() {
-          Column({ space: SPACING.sectionGap }) {
-            this.buildQuickEntryGrid()
-            this.buildMessageFeed()
+
+        // 下拉刷新 + 滚动容器
+        Refresh({ refreshing: $$this.isRefreshing }) {
+          Scroll() {
+            Column({ space: SPACING.sectionGap }) {
+              this.buildQuickEntryGrid()
+              this.buildMessageFeedOrGuide()
+            }
+            .width('100%')
+            .padding({
+              left: SPACING.pageH,
+              right: SPACING.pageH,
+              top: SPACING.cardGap,
+              bottom: SPACING.pageBottom
+            })
           }
-          .width('100%')
-          .padding({
-            left: SPACING.pageH,
-            right: SPACING.pageH,
-            top: SPACING.cardGap,
-            bottom: SPACING.pageBottom
-          })
+          .layoutWeight(1)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
         }
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .onRefreshing(async () => {
+          await this.handleRefresh();
+        })
       }
       .width('100%')
       .height('100%')
@@ -192,6 +266,10 @@ export struct HomeContentView {
     .width('100%')
     .height('100%')
     .backgroundColor(this.tokens ? this.tokens.bg : '#F5F7FA')
+    .onAppear(() => {
+      hilog.info(0x0000, TAG, '🎨 HomeContentView build rendered: hasFamilyMembers=%{public}s, feedMessages=%{public}d',
+        this.hasFamilyMembers.toString(), this.feedMessages.length);
+    })
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -322,6 +400,161 @@ export struct HomeContentView {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // 家庭消息流或引导卡片（根据是否有家庭成员判断）
+  // ═══════════════════════════════════════════════════════════
+  @Builder
+  buildMessageFeedOrGuide() {
+    if (!this.hasFamilyMembers) {
+      // 无家庭成员时显示引导卡片
+      this.buildEmptyGuide();
+    } else if (this.feedMessages.length === 0) {
+      // 有家庭成员但无消息时显示空消息提示
+      this.buildEmptyMessageHint();
+    } else {
+      // 有消息时显示消息流
+      this.buildMessageFeed();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 无家庭引导卡片
+  // ═══════════════════════════════════════════════════════════
+  @Builder
+  buildEmptyGuide() {
+    Column({ space: SPACING.cardGap }) {
+      // 分区标题
+      Row() {
+        Text('家庭消息流')
+          .fontSize(TYPO.sectionTitle.size)
+          .fontWeight(TYPO.sectionTitle.weight)
+          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+          .attributeModifier(SKETCH_SECTION_TITLE)
+      }
+      .width('100%')
+
+      // 引导卡片
+      Column({ space: 16 }) {
+        // 图标
+        SymbolGlyph(IconMapper.NAV_PROFILE)
+          .fontSize(48)
+          .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
+
+        // 提示文本
+        Text('还没有加入家庭')
+          .fontSize(TYPO.cardTitle.size)
+          .fontWeight(TYPO.cardTitle.weight)
+          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+          .attributeModifier(SKETCH_CARD_TITLE)
+
+        Text('创建或加入家庭后，即可与家人分享日记、待办和语音')
+          .fontSize(TYPO.body.size)
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
+          .textAlign(TextAlign.Center)
+          .attributeModifier(SKETCH_BODY_TYPO)
+
+        // 操作按钮
+        Row({ space: 12 }) {
+          Button('创建家庭')
+            .fontSize(TYPO.body.size)
+            .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+            .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+            .borderRadius(RADIUS.item)
+            .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+            .border({
+              width: 1,
+              color: this.tokens ? this.tokens.border : '#E0E0E0'
+            })
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/FamilyPage' }).catch((err: Error) => {
+                hilog.error(0x0000, TAG, 'pushUrl FamilyPage failed: %{public}s', err.message);
+              });
+            })
+
+          Button('加入家庭')
+            .fontSize(TYPO.body.size)
+            .fontColor('#FFFFFF')
+            .backgroundColor(this.tokens ? this.tokens.primary : '#0A59F7')
+            .borderRadius(RADIUS.item)
+            .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/FamilyPage' }).catch((err: Error) => {
+                hilog.error(0x0000, TAG, 'pushUrl FamilyPage failed: %{public}s', err.message);
+              });
+            })
+        }
+        .margin({ top: 8 })
+      }
+      .width('100%')
+      .padding(SPACING.cardPadLg)
+      .borderRadius(RADIUS.card)
+      .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+      .shadow({
+        radius: 8,
+        color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+        offsetX: 0,
+        offsetY: 2
+      })
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .onAppear(() => {
+      hilog.info(0x0000, TAG, '📢 UI: showing EMPTY GUIDE (no family members)');
+    })
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 有家庭成员但暂无消息提示
+  // ═══════════════════════════════════════════════════════════
+  @Builder
+  buildEmptyMessageHint() {
+    Column({ space: SPACING.cardGap }) {
+      // 分区标题
+      Row() {
+        Text('家庭消息流')
+          .fontSize(TYPO.sectionTitle.size)
+          .fontWeight(TYPO.sectionTitle.weight)
+          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+          .attributeModifier(SKETCH_SECTION_TITLE)
+      }
+      .width('100%')
+
+      // 空消息提示卡片
+      Column({ space: 12 }) {
+        SymbolGlyph(IconMapper.NAV_PROFILE)
+          .fontSize(36)
+          .fontColor([this.tokens ? this.tokens.textTertiary : '#999999'])
+
+        Text('暂无家庭消息')
+          .fontSize(TYPO.cardTitle.size)
+          .fontWeight(TYPO.cardTitle.weight)
+          .fontColor(this.tokens ? this.tokens.textPrimary : '#1A1A1A')
+          .attributeModifier(SKETCH_CARD_TITLE)
+
+        Text('与家人互动后，消息会显示在这里')
+          .fontSize(TYPO.body.size)
+          .fontColor(this.tokens ? this.tokens.textSecondary : '#666666')
+          .textAlign(TextAlign.Center)
+          .attributeModifier(SKETCH_BODY_TYPO)
+      }
+      .width('100%')
+      .padding(SPACING.cardPadLg)
+      .borderRadius(RADIUS.card)
+      .backgroundColor(this.tokens ? this.tokens.bgCard : '#FFFFFF')
+      .shadow({
+        radius: 8,
+        color: this.tokens ? this.tokens.shadow : 'rgba(0,0,0,0.08)',
+        offsetX: 0,
+        offsetY: 2
+      })
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .onAppear(() => {
+      hilog.info(0x0000, TAG, '📢 UI: showing EMPTY MESSAGE HINT (has members, no messages)');
+    })
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // 家庭消息流（卡片列表）
   // ═══════════════════════════════════════════════════════════
   @Builder
@@ -400,6 +633,9 @@ export struct HomeContentView {
       }, (msg: FeedMessage) => msg.id.toString())
     }
     .width('100%')
+    .onAppear(() => {
+      hilog.info(0x0000, TAG, '📢 UI: showing MESSAGE FEED (has %{public}d messages)', this.feedMessages.length);
+    })
   }
 
   /**
@@ -408,19 +644,29 @@ export struct HomeContentView {
   private handleQuickEntryTap(key: string): void {
     switch (key) {
       case 'photo':
-        router.pushUrl({ url: 'pages/QuickCameraPage' });
-        break;
-      case 'voice':
-        router.pushUrl({ url: 'pages/VoiceAssistantPage' });
-        break;
-      case 'generate':
-        router.pushUrl({ url: 'pages/DiaryEditPage' });
-        break;
-      case 'remind':
-        router.pushUrl({ url: 'pages/TodoPage' });
+        router.pushUrl({ url: 'pages/QuickCameraPage' }).catch((err: Error) => {
+          hilog.error(0x0000, TAG, 'pushUrl QuickCameraPage failed: %{public}s', err.message);
+        });
         break;
       case 'todo':
-        router.pushUrl({ url: 'pages/FamilyPage' });
+        router.pushUrl({ url: 'pages/TodoPage' }).catch((err: Error) => {
+          hilog.error(0x0000, TAG, 'pushUrl TodoPage failed: %{public}s', err.message);
+        });
+        break;
+      case 'sync':
+        router.pushUrl({ url: 'pages/SettingsPage', params: { openAdvanced: true } }).catch((err: Error) => {
+          hilog.error(0x0000, TAG, 'pushUrl SettingsPage failed: %{public}s', err.message);
+        });
+        break;
+      case 'voice':
+        router.pushUrl({ url: 'pages/VoiceAssistantPage' }).catch((err: Error) => {
+          hilog.error(0x0000, TAG, 'pushUrl VoiceAssistantPage failed: %{public}s', err.message);
+        });
+        break;
+      case 'generate':
+        router.pushUrl({ url: 'pages/DiaryEditPage' }).catch((err: Error) => {
+          hilog.error(0x0000, TAG, 'pushUrl DiaryEditPage failed: %{public}s', err.message);
+        });
         break;
       case 'ai':
         AppStorage.setOrCreate('navTargetTab', 'ai');

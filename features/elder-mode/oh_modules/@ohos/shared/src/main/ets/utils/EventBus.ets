@@ -16,6 +16,15 @@ const TAG = 'EventBus';
 export type EventCallback = (data: Record<string, Object>) => void;
 
 /**
+ * DEV-007: 账号登录成功事件数据
+ * 继承 Record<string, Object> 以匹配 EventBus.emit() 参数类型
+ */
+export interface AccountLoginSuccessData extends Record<string, Object> {
+  uid: string;
+  phone: string;
+}
+
+/**
  * Explicit interface for the centralized event-name constants.
  * ArkTS arkts-no-untyped-obj-literals: object literals must correspond to a
  * declared interface/class (Record<string,string> literal is rejected), so all
@@ -47,6 +56,8 @@ export interface EventNameMap {
   GESTURE_CAPTURE_COMPLETE: string;
   SEARCH_EXECUTED: string;
   SHARE_STAGE_CHANGED: string;
+  /** DEV-007：账号登录成功后发射，首页等订阅方刷新数据 */
+  ACCOUNT_LOGIN_SUCCESS: string;
 }
 
 /**
@@ -64,7 +75,7 @@ export interface EventNameMap {
  *   EventBus.off(EventBus.EventNames.CHECKIN_CHANGED); // in aboutToDisappear
  */
 export class EventBus {
-  /** Centralized event name constants (23 events covering all modules) */
+  /** Centralized event name constants (24 events covering all modules) */
   static readonly EventNames: EventNameMap = {
     CHECKIN_CHANGED: 'event:checkin:changed',
     TODO_CREATED: 'event:todo:created',
@@ -89,7 +100,8 @@ export class EventBus {
     CLIPBOARD_TASK_DETECTED: 'event:clipboard:task-detected',
     GESTURE_CAPTURE_COMPLETE: 'event:gesture:capture-complete',
     SEARCH_EXECUTED: 'event:search:executed',
-    SHARE_STAGE_CHANGED: 'event:share:stage-changed'
+    SHARE_STAGE_CHANGED: 'event:share:stage-changed',
+    ACCOUNT_LOGIN_SUCCESS: 'event:account:login-success'
   };
 
   /** Emitter instance - application-wide singleton (isolated from global emitter) */

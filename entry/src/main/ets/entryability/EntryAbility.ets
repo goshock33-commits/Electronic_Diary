@@ -23,7 +23,7 @@ import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { StartupTasks, ShareUtils, FONT, getThemeManager, ReminderAgentService, NotificationUtils, PersistentState, TodoDao, TodoItem, VoiceReminderSender, KnockShareService, EventBus, PushManager, DiaryDao, GlobalSearchService, DatabaseExecutor } from '@ohos/shared';
+import { StartupTasks, ShareUtils, FONT, getThemeManager, ReminderAgentService, NotificationUtils, PersistentState, TodoDao, TodoItem, VoiceReminderSender, KnockShareService, EventBus, PushManager, DiaryDao, GlobalSearchService, DatabaseExecutor, FamilyMessageManager } from '@ohos/shared';
 import type { BackupImportResult, Diary } from '@ohos/shared';
 import { LiveViewManager } from '../utils/LiveViewManager';
 import { DiaryReminderManager } from '@ohos/shared';
@@ -120,9 +120,14 @@ export default class EntryAbility extends UIAbility {
     });
     // fix: HUI-FRONTEND-2 · M17 首次冷启动申请通知权限——未授权时 publishReminder 抛 1700001 静默失败，
     //   提醒开了也不响。requestPermission 内部已捕获拒绝（返回 false），此处仅记录。
+    // fix: DEV-003 · T036 权限被拒后写 AppStorage 标记供 T035 降级轮询逻辑读取。
     NotificationUtils.requestPermission(this.context).then((granted: boolean) => {
       if (!granted) {
-        hilog.warn(DOMAIN, TAG, 'M17: notification permission denied — daily reminder will be silent');
+        hilog.warn(DOMAIN, TAG, 'M17+T036: notification permission denied — daily reminder will be silent');
+        // T036: 权限拒绝标记，供 T035 FamilyMessageManager 轮询降级逻辑使用
+        AppStorage.setOrCreate('notification_permission_denied', true);
+      } else {
+        AppStorage.setOrCreate('notification_permission_denied', false);
       }
     });
 
@@ -185,6 +190,19 @@ export default class EntryAbility extends UIAbility {
       hilog.info(DOMAIN, TAG, '✅✅ DEV-032: FTS5 sync completed successfully');
     }).catch((err: Error) => {
       hilog.error(DOMAIN, TAG, '❌❌ DEV-032: FTS5 sync failed: %{public}s', err.message);
+    });
+
+    // T048: 应用启动时同步未读消息总数到 AppStorage（挂 StartupTasks 之后，依赖数据库初始化）：
+    //   查询所有会话的未读数之和，同步到 AppStorage['unread_message_total']，供底部 Tab 角标使用。
+    //   失败不阻塞启动，仅记录日志。
+    hilog.info(DOMAIN, TAG, '📌 About to sync unread message total');
+    startupPromise.then(() => {
+      hilog.info(DOMAIN, TAG, '✅ StartupTasks done, calling FamilyMessageManager.syncUnreadToAppStorage');
+      return FamilyMessageManager.getInstance().syncUnreadToAppStorage();
+    }).then(() => {
+      hilog.info(DOMAIN, TAG, '✅✅ T048: Unread message sync completed successfully');
+    }).catch((err: Error) => {
+      hilog.error(DOMAIN, TAG, '❌❌ T048: Unread message sync failed: %{public}s', err.message);
     });
 
     hilog.info(DOMAIN, TAG, '🏁 EntryAbility onCreate END (async tasks continue)');

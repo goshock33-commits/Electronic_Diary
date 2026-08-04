@@ -206,6 +206,8 @@ export class IconMapper {
   static readonly FONT_SIZE: Resource = $r('sys.symbol.textformat');
   /** 备份/云 — 替代 icloud_fill（Apple SF Symbols 照搬），验证来源: IconMapper.MOOD_SAD cloud_fill 已验证 */
   static readonly BACKUP: Resource = $r('sys.symbol.cloud_fill');
+  /** 多端同步 — grep验证: arrow_clockwise 在库 ✅（已用于 REFRESH/LOADING） */
+  static readonly SYNC: Resource = $r('sys.symbol.arrow_clockwise');
   /** 无障碍 */
   static readonly ACCESSIBILITY: Resource = $r('sys.symbol.figure_roll');
 

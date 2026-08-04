@@ -63,7 +63,7 @@ export { ShareUtils } from './src/main/ets/utils/ShareUtils';
 export { KnockShareService, type BackupExportResult, type BackupImportResult, type DiaryBundle, type DiaryEntryPayload } from './src/main/ets/utils/KnockShareService';
 // fix: DEV-014 · T-B02 碰一碰真实传输通道（Share Kit harmonyShare 发送/接收 + NFC 状态）
 export { KnockTransferService, type NfcStateLabel, type KnockSendResultCallback, type KnockReceiveFilesCallback, type KnockTriggeredCallback, type KnockFailCallback } from './src/main/ets/utils/KnockTransferService';
-export { EventBus, type EventCallback } from './src/main/ets/utils/EventBus';
+export { EventBus, type EventCallback, type AccountLoginSuccessData } from './src/main/ets/utils/EventBus';
 export { DiaryReminderManager, type DiaryReminderConfig } from './src/main/ets/utils/DiaryReminderManager';
 // fix: HUI-FRONTEND — F11：铃声试听工具（AVPlayer + rawfile 5 段 WAV，与真实提醒同映射）
 export { RingtonePlayUtils, type RingtoneMeta } from './src/main/ets/utils/RingtonePlayUtils';

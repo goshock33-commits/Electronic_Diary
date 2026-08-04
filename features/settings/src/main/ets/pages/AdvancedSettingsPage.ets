@@ -27,6 +27,7 @@ import { util } from '@kit.ArkTS';
 import { SettingsViewModel } from '../viewmodel/SettingsViewModel';
 import type { BackupExportResult } from '@ohos/shared';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { PushStatusDiagnostic } from '../components/PushStatusDiagnostic';
 
 /** 字体大小选项配置 */
 interface FontSizeOption {
@@ -141,6 +142,9 @@ export struct AdvancedSettingsPage {
         .alignItems(HorizontalAlign.Start)
         .margin({ bottom: SPACING.sectionGap })
         .accessibilityText('高级设置')
+
+        // ═══════════ 推送诊断卡 ═══════════
+        PushStatusDiagnostic()
 
         // ═══════════ 数据管理卡 ═══════════
         this.buildCardTitle('DATA MANAGEMENT', '数据管理')

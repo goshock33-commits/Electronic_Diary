@@ -143,6 +143,10 @@
     {
       "name": "features_family",
       "srcPath": "./features/family"
+    },
+    {
+      "name": "features_family_message",
+      "srcPath": "./features/family-message"
     }
   ]
 }

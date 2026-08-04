@@ -1,0 +1,11 @@
+{
+  "name": "features_family_message",
+  "version": "1.0.0",
+  "description": "Feature module: family message stream",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/shared": "file:../../shared"
+  }
+}

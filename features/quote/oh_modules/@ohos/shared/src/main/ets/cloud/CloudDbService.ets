@@ -35,6 +35,10 @@ export class CloudAccount extends cloudDatabase.DatabaseObject {
   phone: string = '';
   password: string = '';
   nickname: string = '';
+  avatar: string = '';
+  gender: string = '';
+  birthday: string = '';
+  bio: string = '';
   push_token: string = '';
   created_at: number = 0;
 
@@ -459,6 +463,24 @@ export class CloudDbService {
       return results[0];
     }
     return null;
+  }
+
+  /**
+   * T040: 查询两个用户之间的消息（from_uid -> to_uid 单向）
+   * @param fromUid 发送人 uid
+   * @param toUid 接收人 uid
+   * @returns CloudFamilyMessage[] 消息列表
+   */
+  async queryMessagesBetweenUsers(fromUid: string, toUid: string): Promise<CloudFamilyMessage[]> {
+    const z = this.getZone();
+    const query = new cloudDatabase.DatabaseQuery(CloudFamilyMessage);
+    query.equalTo('from_uid', fromUid);
+    query.equalTo('to_uid', toUid);
+    query.orderByAsc('created_at');
+    const results = await z.query(query);
+    hilog.info(0x0000, TAG, 'queryMessagesBetweenUsers: from=%{public}s to=%{public}s count=%{public}d',
+      fromUid, toUid, results.length);
+    return results;
   }
 
   // ===================== Batch Operations =====================

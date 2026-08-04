@@ -21,7 +21,8 @@
     "features_voice_diary": "file:../features/voice-diary",
     "features_task_extraction": "file:../features/task-extraction",
     "features_elder_mode": "file:../features/elder-mode",
-    "features_family": "file:../features/family"
+    "features_family": "file:../features/family",
+    "features_family_message": "file:../features/family-message"
   },
   "devDependencies": {},
   "dynamicDependencies": {}

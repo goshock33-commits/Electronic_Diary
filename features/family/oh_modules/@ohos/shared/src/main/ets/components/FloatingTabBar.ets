@@ -86,6 +86,8 @@ export struct FloatingTabBar {
   /** MainPage 传入的当前选中 Tab 索引（HUI-078）：用于判断是否进入 AI 页触发浮球收缩 */
   @Prop @Watch('onSelectedTabIndexChange') selectedTabIndex: number = 0;
   @StorageLink('theme_tokens') tokens: ThemeColorTokens | null = null;
+  /** T048: 未读消息总数（供首页 Tab 角标显示） */
+  @StorageLink('unread_message_total') unreadMessageTotal: number = 0;
   onTabChange?: (key: string) => void;
 
   // ── 浮球形态状态（HUI-078）─────────────────────────────
@@ -214,94 +216,114 @@ export struct FloatingTabBar {
       // 层 2：Tab 项行（图标 + 标签）—— 胶囊态可交互，浮球态禁用并淡出
       Row() {
         ForEach(this.tabs, (tab: TabItemConfig, idx: number) => {
-          Column() {
-            // HUI-019 · T-LT04（F2 共享 ForEach + if 分支）：仅 AI 伙伴 Tab 的图标节点替换为 TalkBotAnimation，
-            //   其余 4 Tab 走 SymbolGlyph（HUI-001 手绘换回系统图标；点击/激活态不受影响）。仅替换图标节点，Column 尺寸、
-            //   .onClick 点击逻辑、层级手势一律不动。TalkBot 自带配色，不随深浅/激活态染色（激活态背景由层1青球控制）。
-            //   限流（F3 + JUDGE N1）：胶囊态播放；浮球态本层被 opacity(0) 隐藏 → shouldPlay=false 暂停隐藏实例；
-            //   收缩/展开 spring 期间 shouldPlay=false 暂停。
-            //   HUI-019 · 用户视觉调整：AI Tab 去掉可见 Text 文字标签（见下方 if(tab.key!=='ai')），动画放大至 52vp
-            //   占满 56vp 列并垂直居中；无障碍语义靠 LottieAnimation.accessibilityLabel + Column.accessibilityText 兜住。
-            if (tab.key === 'ai') {
-              // HUI-001：Lottie + 语音聆听波纹（青色，往外扩→渐隐消失）
-              Stack() {
-                // HUI-001：波纹圈（3 圈青色，从猫中心往外扩→渐隐，不裁切）
-                if (this.aiVoiceListening) {
-                  ForEach([0, 1, 2], (ripple: number) => {
-                    Column()
-                      .width(72)
-                      .height(72)
-                      .borderRadius(36)
-                      .border({ width: 1.5, color: 'rgba(79,216,206,' + (0.5 - ripple * 0.15).toFixed(2) + ')' })
-                      .scale({ x: 1 + (this.voiceRipplePhase % 600) / 600 * 2.5, y: 1 + (this.voiceRipplePhase % 600) / 600 * 2.5 })
-                      .opacity(Math.max(0, 0.55 - ripple * 0.18 - (this.voiceRipplePhase % 600) / 600 * 0.5))
-                      .animation({ duration: 500 + ripple * 150, curve: Curve.EaseOut })
-                  }, (ripple: number) => ripple.toString())
+          // T048: Tab 项包装 Stack，用于叠加角标（仅 home Tab 显示未读红点）
+          Stack() {
+            Column() {
+              // HUI-019 · T-LT04（F2 共享 ForEach + if 分支）：仅 AI 伙伴 Tab 的图标节点替换为 TalkBotAnimation，
+              //   其余 4 Tab 走 SymbolGlyph（HUI-001 手绘换回系统图标；点击/激活态不受影响）。仅替换图标节点，Column 尺寸、
+              //   .onClick 点击逻辑、层级手势一律不动。TalkBot 自带配色，不随深浅/激活态染色（激活态背景由层1青球控制）。
+              //   限流（F3 + JUDGE N1）：胶囊态播放；浮球态本层被 opacity(0) 隐藏 → shouldPlay=false 暂停隐藏实例；
+              //   收缩/展开 spring 期间 shouldPlay=false 暂停。
+              //   HUI-019 · 用户视觉调整：AI Tab 去掉可见 Text 文字标签（见下方 if(tab.key!=='ai')），动画放大至 52vp
+              //   占满 56vp 列并垂直居中；无障碍语义靠 LottieAnimation.accessibilityLabel + Column.accessibilityText 兜住。
+              if (tab.key === 'ai') {
+                // HUI-001：Lottie + 语音聆听波纹（青色，往外扩→渐隐消失）
+                Stack() {
+                  // HUI-001：波纹圈（3 圈青色，从猫中心往外扩→渐隐，不裁切）
+                  if (this.aiVoiceListening) {
+                    ForEach([0, 1, 2], (ripple: number) => {
+                      Column()
+                        .width(72)
+                        .height(72)
+                        .borderRadius(36)
+                        .border({ width: 1.5, color: 'rgba(79,216,206,' + (0.5 - ripple * 0.15).toFixed(2) + ')' })
+                        .scale({ x: 1 + (this.voiceRipplePhase % 600) / 600 * 2.5, y: 1 + (this.voiceRipplePhase % 600) / 600 * 2.5 })
+                        .opacity(Math.max(0, 0.55 - ripple * 0.18 - (this.voiceRipplePhase % 600) / 600 * 0.5))
+                        .animation({ duration: 500 + ripple * 150, curve: Curve.EaseOut })
+                    }, (ripple: number) => ripple.toString())
+                  }
+                  LottieAnimation({
+                    animPath: 'animations/talkbot.json',
+                    animName: 'nav-talkbot-tab',
+                    loop: true,
+                    autoPlay: true,
+                    frameRate: 30,
+                    contentMode: 'Contain',
+                    animWidth: 52,
+                    animHeight: 52,
+                    accessibilityLabel: tab.label,
+                    shouldPlay: !this.isBallMode && !this.isSpringAnimating
+                  })
                 }
-                LottieAnimation({
-                  animPath: 'animations/talkbot.json',
-                  animName: 'nav-talkbot-tab',
-                  loop: true,
-                  autoPlay: true,
-                  frameRate: 30,
-                  contentMode: 'Contain',
-                  animWidth: 52,
-                  animHeight: 52,
-                  accessibilityLabel: tab.label,
-                  shouldPlay: !this.isBallMode && !this.isSpringAnimating
-                })
+              } else {
+                // 标准 Tab 图标：选中蓝色，未选中灰色
+                SymbolGlyph(this.tabKeyToSymbol(tab.key))
+                  .fontSize(24)
+                  .fontColor([this.isActive(tab.key) ?
+                    (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
+                    (this.tokens ? this.tokens.textTertiary : '#999999')])
               }
-            } else {
-              // 标准 Tab 图标：选中蓝色，未选中灰色
-              SymbolGlyph(this.tabKeyToSymbol(tab.key))
-                .fontSize(24)
-                .fontColor([this.isActive(tab.key) ?
+              // 所有 Tab 始终显示文字标签
+              Text(tab.label)
+                .fontSize(10)
+                .fontWeight(this.isActive(tab.key) ? FontWeight.Medium : FontWeight.Normal)
+                .fontColor(this.isActive(tab.key) ?
                   (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
-                  (this.tokens ? this.tokens.textTertiary : '#999999')])
+                  (this.tokens ? this.tokens.textTertiary : '#999999'))
+                .margin({ top: 2 })
             }
-            // 所有 Tab 始终显示文字标签
-            Text(tab.label)
-              .fontSize(10)
-              .fontWeight(this.isActive(tab.key) ? FontWeight.Medium : FontWeight.Normal)
-              .fontColor(this.isActive(tab.key) ?
-                (this.tokens ? this.tokens.btnPrimary : '#0A59F7') :
-                (this.tokens ? this.tokens.textTertiary : '#999999'))
-              .margin({ top: 2 })
+            .width(56)
+            .height(56)
+            .constraintSize({ minWidth: 56, minHeight: 48 })
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
+            .hitTestBehavior(HitTestMode.Block)
+            .onClick(() => {
+              this.handleTabClick(tab.key);
+            })
+            // HUI-001：AI 伙伴 Tab 长按触发语音输入（400ms，与短按切换共存）。
+            //   跨组件信号：写 AppStorage → AIChatView @StorageProp @Watch → startVoiceInput / stopVoiceInput。
+            .gesture(
+              LongPressGesture({ repeat: false, duration: 400 })
+                .onAction(() => {
+                  if (tab.key === 'ai') {
+                    if (!this.isActive(tab.key)) {
+                      this.handleTabClick(tab.key);
+                    }
+                    AppStorage.setOrCreate('ai_voice_trigger', Date.now());
+                  }
+                })
+                .onActionEnd(() => {
+                  if (tab.key === 'ai') {
+                    AppStorage.setOrCreate('ai_voice_stop', Date.now());
+                  }
+                })
+                .onActionCancel(() => {
+                  if (tab.key === 'ai') {
+                    AppStorage.setOrCreate('ai_voice_stop', Date.now());
+                  }
+                })
+            )
+            .accessibilityText(tab.label + '标签，' + (this.isActive(tab.key) ? '已选中，长按可语音输入' : '未选中'))
+            .clip(tab.key !== 'ai' || !this.aiVoiceListening) // HUI-001：AI Tab 聆听态不裁切，允许波纹溢出
+
+            // T048: 未读角标（仅 home Tab 且未读数 > 0 时显示）
+            if (tab.key === 'home' && this.unreadMessageTotal > 0) {
+              Text(this.unreadMessageTotal > 99 ? '99+' : this.unreadMessageTotal.toString())
+                .fontSize(10)
+                .fontColor('#FFFFFF')
+                .fontWeight(FontWeight.Medium)
+                .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+                .borderRadius(8)
+                .backgroundColor('#FF4D4F')
+                .position({ x: '50%', y: 4 })
+                .translate({ x: 8 })
+                .constraintSize({ minWidth: 16, minHeight: 16 })
+                .textAlign(TextAlign.Center)
+            }
           }
           .width(56)
           .height(56)
-          .constraintSize({ minWidth: 56, minHeight: 48 })
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .hitTestBehavior(HitTestMode.Block)
-          .onClick(() => {
-            this.handleTabClick(tab.key);
-          })
-          // HUI-001：AI 伙伴 Tab 长按触发语音输入（400ms，与短按切换共存）。
-          //   跨组件信号：写 AppStorage → AIChatView @StorageProp @Watch → startVoiceInput / stopVoiceInput。
-          .gesture(
-            LongPressGesture({ repeat: false, duration: 400 })
-              .onAction(() => {
-                if (tab.key === 'ai') {
-                  if (!this.isActive(tab.key)) {
-                    this.handleTabClick(tab.key);
-                  }
-                  AppStorage.setOrCreate('ai_voice_trigger', Date.now());
-                }
-              })
-              .onActionEnd(() => {
-                if (tab.key === 'ai') {
-                  AppStorage.setOrCreate('ai_voice_stop', Date.now());
-                }
-              })
-              .onActionCancel(() => {
-                if (tab.key === 'ai') {
-                  AppStorage.setOrCreate('ai_voice_stop', Date.now());
-                }
-              })
-          )
-          .accessibilityText(tab.label + '标签，' + (this.isActive(tab.key) ? '已选中，长按可语音输入' : '未选中'))
-          .clip(tab.key !== 'ai' || !this.aiVoiceListening) // HUI-001：AI Tab 聆听态不裁切，允许波纹溢出
         }, (tab: TabItemConfig, idx: number) => tab.key)
       }
       .opacity(this.isBallMode ? 0 : 1)

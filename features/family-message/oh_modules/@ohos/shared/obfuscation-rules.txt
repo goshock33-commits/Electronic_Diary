@@ -1,0 +1,5 @@
+# Obfuscation rules for shared module
+
+# @ohos/lottie 库不可被混淆，否则 release 构建运行时崩溃（见库 README 注意事项 6 / T-LT01 S8）
+-keep
+./oh_modules/@ohos/lottie

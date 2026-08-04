@@ -121,17 +121,26 @@ export class FamilyManager {
     }
 
     try {
-      // 本地数据归属校验：无数据或属于其他用户则从云端恢复
+      // 本地数据归属校验：检查是否有当前用户的有效家庭数据
       const locals: FamilyMember[] = await FamilyMemberDao.queryAll();
-      if (locals.length > 0) {
-        const hasMyRecord: boolean = locals.some((m: FamilyMember): boolean => m.uid === myUid);
+      const validMembers = locals.filter((m: FamilyMember): boolean =>
+        m.family_id !== null && m.family_id!.length > 0);
+
+      if (validMembers.length > 0) {
+        const hasMyRecord: boolean = validMembers.some((m: FamilyMember): boolean => m.uid === myUid);
         if (hasMyRecord) {
-          hilog.debug(0x0000, TAG, 'init skipped: local cache has my record (%{public}d members)', locals.length);
+          hilog.debug(0x0000, TAG, 'init skipped: local cache has my valid record (%{public}d valid members)', validMembers.length);
           return;
         }
-        // 本地数据不属于当前用户（残留上一用户的脏数据），清空后全量恢复
-        hilog.warn(0x0000, TAG, 'init: stale data from previous user, clearing and restoring...');
+      }
+
+      // 本地无有效数据或不属于当前用户（残留上一用户的脏数据），清空后全量恢复
+      if (locals.length > 0) {
+        hilog.warn(0x0000, TAG, 'init: clearing stale/invalid data (total=%{public}d, valid=%{public}d)',
+          locals.length, validMembers.length);
         await FamilyMemberDao.deleteAll();
+      } else {
+        hilog.info(0x0000, TAG, 'init: local cache empty, restoring from cloud for uid=%{public}s', myUid);
       }
 
       // ① 查 Cloud DB Family 表（owner_uid = myUid）
@@ -314,20 +323,32 @@ export class FamilyManager {
       let members: FamilyMember[] = await FamilyMemberDao.queryAll();
       // 过滤：只返回已绑定家庭的成员（family_id 为空 = 残留脏数据 / 尚未加入家庭）
       members = members.filter((m: FamilyMember): boolean => m.family_id !== null && m.family_id!.length > 0);
-      // T705: 首次调用本地为空时自动从云端全量恢复
+
+      hilog.info(0x0000, TAG, '🔍 getAllMembers: local filtered count=%{public}d', members.length);
+
+      // T705: 本地无有效成员时自动从云端全量恢复
       if (members.length === 0) {
+        hilog.info(0x0000, TAG, '🔄 getAllMembers: triggering init() for cloud restore');
         await this.init();
         members = (await FamilyMemberDao.queryAll())
           .filter((m: FamilyMember): boolean => m.family_id !== null && m.family_id!.length > 0);
+        hilog.info(0x0000, TAG, '✅ getAllMembers: after init, count=%{public}d', members.length);
       }
+
       // T708: 每次进 FamilyPage 必须从云端拉最新数据
       if (members.length > 0) {
+        hilog.info(0x0000, TAG, '🔄 getAllMembers: triggering refreshCacheFromCloud()');
         await this.refreshCacheFromCloud();
-        members = await FamilyMemberDao.queryAll(); // 云端合并后重读本地
+        members = await FamilyMemberDao.queryAll();
+        // 云端合并后重读本地，再次过滤并去重
+        members = members.filter((m: FamilyMember): boolean => m.family_id !== null && m.family_id!.length > 0);
+        members = this.deduplicateMembers(members);
+        hilog.info(0x0000, TAG, '✅ getAllMembers: final count after refresh=%{public}d', members.length);
       }
+
       return Result.ok<FamilyMember[]>(members);
     } catch (e) {
-      hilog.error(0x0000, TAG, 'getAllMembers failed: %{public}s', (e as Error).message);
+      hilog.error(0x0000, TAG, '❌ getAllMembers failed: %{public}s', (e as Error).message);
       return Result.fail<FamilyMember[]>('查询成员列表失败，请重试');
     }
   }
@@ -904,5 +925,66 @@ export class FamilyManager {
     } finally {
       this.cloudRefreshInFlight = false;
     }
+  }
+
+  /**
+   * 按 uid 去重成员列表（同一个 uid 只保留一条记录）。
+   * 去重策略：
+   * - 优先保留 is_self=1 的记录（本机用户）
+   * - 其次保留 uid 非空的记录
+   * - 最后按 id 升序（保留较早创建的记录）
+   * - uid 为空的记录不参与去重，独立保留（历史数据兼容）
+   * @param members 待去重的成员列表
+   * @returns 去重后的成员列表
+   */
+  private deduplicateMembers(members: FamilyMember[]): FamilyMember[] {
+    const uidMap: Map<string, FamilyMember> = new Map<string, FamilyMember>();
+    const noUidMembers: FamilyMember[] = [];
+
+    for (const member of members) {
+      // uid 为空的记录单独保留（历史数据）
+      if (member.uid === null || member.uid.length === 0) {
+        noUidMembers.push(member);
+        continue;
+      }
+
+      const existing = uidMap.get(member.uid);
+      if (existing === undefined) {
+        // 首次遇到此 uid，直接保存
+        uidMap.set(member.uid, member);
+      } else {
+        // 已存在此 uid，按优先级选择保留哪条记录
+        // 1. 优先保留 is_self=1 的记录
+        if (member.is_self === 1 && existing.is_self !== 1) {
+          uidMap.set(member.uid, member);
+        } else if (member.is_self !== 1 && existing.is_self === 1) {
+          // existing 是本机用户，保留 existing
+          continue;
+        } else {
+          // 都是本机用户或都不是，保留 id 较小的（较早创建的）
+          if (member.id < existing.id) {
+            uidMap.set(member.uid, member);
+          }
+        }
+      }
+    }
+
+    // 合并结果：uid 去重后的 + uid 为空的
+    const result: FamilyMember[] = Array.from(uidMap.values());
+    result.push(...noUidMembers);
+
+    // 按 DAO 的排序规则重新排序：is_self DESC, created_at ASC, id ASC
+    result.sort((a: FamilyMember, b: FamilyMember): number => {
+      if (a.is_self !== b.is_self) {
+        return b.is_self - a.is_self; // is_self=1 在前
+      }
+      if (a.created_at !== b.created_at) {
+        return a.created_at - b.created_at; // 创建时间升序
+      }
+      return a.id - b.id; // id 升序
+    });
+
+    hilog.info(0x0000, TAG, 'deduplicateMembers: %{public}d → %{public}d members', members.length, result.length);
+    return result;
   }
 }

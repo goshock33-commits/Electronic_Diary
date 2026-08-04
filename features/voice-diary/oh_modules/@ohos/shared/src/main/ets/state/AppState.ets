@@ -52,6 +52,9 @@ export class AppState {
   /** Active pomodoro session (0=no active session) */
   static readonly KEY_POMODORO_ACTIVE = 'app_pomodoro_active';
 
+  /** Unread message total count (for home tab badge) */
+  static readonly KEY_UNREAD_MESSAGE_TOTAL = 'unread_message_total';
+
   // ==================== Default Values ====================
 
   /**
@@ -72,6 +75,7 @@ export class AppState {
     defaults[AppState.KEY_IS_LOADING] = 1;
     defaults[AppState.KEY_INIT_COMPLETE] = 0;
     defaults[AppState.KEY_POMODORO_ACTIVE] = 0;
+    defaults[AppState.KEY_UNREAD_MESSAGE_TOTAL] = 0;
     return defaults;
   }
 
@@ -97,5 +101,6 @@ export class AppState {
     AppStorage.setOrCreate(AppState.KEY_IS_LOADING, defaults[AppState.KEY_IS_LOADING]);
     AppStorage.setOrCreate(AppState.KEY_INIT_COMPLETE, defaults[AppState.KEY_INIT_COMPLETE]);
     AppStorage.setOrCreate(AppState.KEY_POMODORO_ACTIVE, defaults[AppState.KEY_POMODORO_ACTIVE]);
+    AppStorage.setOrCreate(AppState.KEY_UNREAD_MESSAGE_TOTAL, defaults[AppState.KEY_UNREAD_MESSAGE_TOTAL]);
   }
 }

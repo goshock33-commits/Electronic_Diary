@@ -139,6 +139,10 @@
     {
       "name": "camera_permission_reason",
       "value": "用于快速拍照功能，拍摄照片后添加到日记中"
+    },
+    {
+      "name": "notification_permission_reason",
+      "value": "用于接收提醒通知和家庭消息推送"
     }
   ]
 }

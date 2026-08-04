@@ -46,6 +46,9 @@ export class PushManager {
   /** 当前 push token 缓存 */
   private currentToken: string = '';
 
+  /** 最后一次 token 上报是否成功（用于诊断显示） */
+  private lastUploadSuccess: boolean = false;
+
   /** initialize 幂等标记 */
   private initialized: boolean = false;
 
@@ -198,13 +201,22 @@ export class PushManager {
    * 复用 VoiceReminderSender 已验证的上传逻辑。
    *
    * fix: DEV-037 · 数据库未就绪时降级返回失败，不外抛异常
+   * fix: DEV-001 (T031) · 空 token 容错：空字符串不上报，记日志待后续排查
    *
    * @param token Push token
    * @returns Result<string> 成功时 data=token
    */
   async uploadTokenToCloud(token: string): Promise<Result<string>> {
+    // T031: 空 token 容错处理（用户反馈登录后 token 为空字符串）
+    if (token.length === 0) {
+      hilog.warn(LOG_DOMAIN, TAG, 'uploadTokenToCloud: empty token, skip upload (待后续排查 token 获取失败原因)');
+      this.lastUploadSuccess = false; // 空 token 视为失败
+      return Result.fail<string>('push token 为空，跳过上报');
+    }
+
     const mgr = AccountManager.getInstance();
     if (!mgr.isLoggedIn()) {
+      this.lastUploadSuccess = false; // 未登录视为失败
       return Result.fail<string>('未登录，无法上报 push token');
     }
 
@@ -216,11 +228,13 @@ export class PushManager {
       await DatabaseHelper.getInstance().whenReady();
     } catch (e) {
       hilog.warn(LOG_DOMAIN, TAG, 'uploadTokenToCloud: database not ready, skip upload');
+      this.lastUploadSuccess = false; // 数据库未就绪视为失败
       return Result.fail<string>('数据库未就绪，push token 未上报');
     }
 
     // 检查 CloudDB zone 是否已打开
     if (!this.ensureZoneOpened()) {
+      this.lastUploadSuccess = false; // Zone 未打开视为失败
       return Result.fail<string>('云服务不可用，push token 未上报');
     }
 
@@ -267,10 +281,12 @@ export class PushManager {
 
       hilog.info(LOG_DOMAIN, TAG, 'uploadTokenToCloud: success, uid=%{public}s tokenLen=%{public}d',
         uid, token.length);
+      this.lastUploadSuccess = true; // 标记上报成功
       return Result.ok<string>(token);
     } catch (e) {
       hilog.error(LOG_DOMAIN, TAG, 'uploadTokenToCloud: Account upsert failed: %{public}s',
         (e as BusinessError).message);
+      this.lastUploadSuccess = false; // 标记上报失败
       return Result.fail<string>('push token 云端上报失败');
     }
   }
@@ -361,6 +377,16 @@ export class PushManager {
    */
   getToken(): string {
     return this.currentToken;
+  }
+
+  /**
+   * 获取最后一次 token 云端上报是否成功。
+   * 用于诊断卡显示：token 本地已获取，但云端可能未同步。
+   *
+   * @returns true=已同步到云端，false=未同步或同步失败
+   */
+  isTokenSyncedToCloud(): boolean {
+    return this.lastUploadSuccess;
   }
 
   /**
